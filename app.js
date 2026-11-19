@@ -3,7 +3,7 @@
    점수 계산식: docs/scoring.md 와 아래 SCORE 모듈이 같아야 한다. */
 (function(){
 "use strict";
-const APP_VER="2026-11-19-5";
+const APP_VER="2026-11-19-6";
 const DEF_URL="https://script.google.com/macros/s/AKfycbxgoPMdod-SPlKH4gcsmEH5bg1GVYMmRDgropKc4qbqLEBAKAQlR95xIzrz75Zfh2o9dg/exec";
 const WEEK=["일","월","화","수","목","금","토"];
 const COND=[[1,"😫","지침"],[2,"😮‍💨","피곤"],[3,"🙂","보통"],[4,"😊","좋음"],[5,"🤩","최고"]];
@@ -113,6 +113,7 @@ const SCORE={
     if(n.inBed)parts.push({k:"효율",w:20,v:lin(n.asleep/n.inBed,0.75,0.92)});
     const st=(n.deep||0)+(n.rem||0);if(n.deep!=null&&n.rem!=null)parts.push({k:"회복 수면",w:20,v:lin(st/n.asleep,0.15,0.38)});
     if(n.awakeCount!=null)parts.push({k:"연속성",w:10,v:1-lin(n.awakeCount,3,12)*0.7-lin(n.awakeMin||0,10,60)*0.3});
+    else if(n.awakeMin!=null)parts.push({k:"연속성",w:10,v:1-lin(n.awakeMin,10,60)});
     const beds=arr(prev).slice(0,7).map(x=>bedMin(x.bed)).filter(x=>x!=null);
     const b=bedMin(n.bed);
     if(beds.length>=3&&b!=null)parts.push({k:"규칙성",w:10,v:1-lin(Math.abs(b-median(beds)),30,120)});
@@ -573,7 +574,7 @@ async function load(show){
     else{const next={};(res.days||[]).forEach(d=>{if(d&&d.date)next[d.date]=d;});S.days=next;
       if(next[TODAY]&&!dirty&&!saving)today=normDay(TODAY,next[TODAY]);
       S.briefs=(res.briefings||[]).filter(b=>b&&b.date).sort((a,b)=>str(b.createdAt).localeCompare(str(a.createdAt)));
-      if(res.health&&!res.health.error){S.health=res.health;S.healthErr="";}else{S.healthErr=res.health&&res.health.error?String(res.health.error):"";}
+      if(res.health&&!res.health.error){S.health=normHealth(res.health);S.healthErr="";}else{S.healthErr=res.health&&res.health.error?String(res.health.error):"";}
       S.loadedAt=new Date();setStatus("최신 · "+hhmm(S.loadedAt)+" 업데이트","ok");
       ls("ys_cache",JSON.stringify({days:res.days,briefings:res.briefings,health:res.health||null}));
       const ae=document.activeElement;if(!(ae&&/INPUT|TEXTAREA/.test(ae.tagName)))renderAll(true);else renderBadge();}
@@ -581,7 +582,9 @@ async function load(show){
   loading=false;
 }
 function loadCache(){try{const c=JSON.parse(ls("ys_cache")||"null");if(!c)return;(c.days||[]).forEach(d=>{if(d&&d.date)S.days[d.date]=d;});if(S.days[TODAY])today=normDay(TODAY,S.days[TODAY]);
-  S.briefs=(c.briefings||[]).filter(b=>b&&b.date).sort((a,b)=>str(b.createdAt).localeCompare(str(a.createdAt)));if(c.health&&!c.health.error)S.health=c.health;}catch(e){}}
+  S.briefs=(c.briefings||[]).filter(b=>b&&b.date).sort((a,b)=>str(b.createdAt).localeCompare(str(a.createdAt)));if(c.health&&!c.health.error)S.health=normHealth(c.health);}catch(e){}}
+/* Health Auto Export 요약에는 '침대 시간'·'깬 횟수'가 없을 수 있다 → 침대 시간은 잔 시간+깨어 있던 시간으로 채운다 */
+function normHealth(h){arr(h.sleep).forEach(x=>{if(x.inBed==null&&x.asleep!=null)x.inBed=x.asleep+(x.awakeMin||0);});return h;}
 
 /* ---------- 업데이트·새로고침 ---------- */
 async function checkUpdate(){try{const r=await fetch("version.txt?t="+Date.now(),{cache:"no-store"});if(!r.ok)return;const v=(await r.text()).trim();

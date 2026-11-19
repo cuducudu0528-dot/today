@@ -269,3 +269,5 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 .setrow .badge{flex:none;white-space:nowrap}
 .cond .wave{right:0;top:0;width:62%;height:140px}
 #logCard{scroll-margin-top:16px}
+.wx b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all}
+.wx small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
