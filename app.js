@@ -3,7 +3,7 @@
    점수 계산식: docs/scoring.md 와 아래 SCORE 모듈이 같아야 한다. */
 (function(){
 "use strict";
-const APP_VER="2026-11-20-1";
+const APP_VER="2026-11-20-2";
 const DEF_URL="https://script.google.com/macros/s/AKfycbxgoPMdod-SPlKH4gcsmEH5bg1GVYMmRDgropKc4qbqLEBAKAQlR95xIzrz75Zfh2o9dg/exec";
 const WEEK=["일","월","화","수","목","금","토"];
 const COND=[[1,"😫","지침"],[2,"😮‍💨","피곤"],[3,"🙂","보통"],[4,"😊","좋음"],[5,"🤩","최고"]];
@@ -83,10 +83,10 @@ function bedMin(t){const v=minOfDay(t);if(v==null)return null;return v<12*60?v+1
 let TODAY=ymd(new Date());
 const S={days:{},briefs:[],health:null,healthErr:"",loadedAt:null,online:null};
 let today=blankDay(TODAY),filter="전체",sleepRange=7,healthRange=14;
-function blankDay(id){return{date:id,water:0,coffee:0,workout:[],condition:null,mood:"",supplement:false,alcohol:false,breakfast:"",lunch:"",dinner:"",memo:"",reflected:false};}
+function blankDay(id){return{date:id,water:0,coffee:0,workout:[],condition:[],mood:[],supplement:false,alcohol:false,breakfast:"",lunch:"",dinner:"",memo:"",reflected:false};}
 function normDay(id,d){d=d||{};const b=v=>v===true||String(v).toUpperCase()==="TRUE";
   return{date:id,water:num(d.water)||0,coffee:num(d.coffee)||0,workout:(Array.isArray(d.workout)?d.workout:str(d.workout).split(",")).map(s=>str(s).trim()).filter(w=>WORK.includes(w)),
-  condition:num(d.condition),mood:str(d.mood),supplement:b(d.supplement),alcohol:b(d.alcohol),breakfast:str(d.breakfast),lunch:str(d.lunch),dinner:str(d.dinner),memo:str(d.memo),reflected:b(d.reflected)};}
+  condition:str(d.condition).split(",").map(x=>num(x.trim())).filter(x=>x>=1&&x<=5),mood:str(d.mood).split(",").map(x=>x.trim()).filter(x=>MOOD.includes(x)),supplement:b(d.supplement),alcohol:b(d.alcohol),breakfast:str(d.breakfast),lunch:str(d.lunch),dinner:str(d.dinner),memo:str(d.memo),reflected:b(d.reflected)};}
 const CFG={url:DEF_URL,key:(ls("ys_key")||"").trim()};
 
 /* ---------- 테마: 시스템(기본)/라이트/다크 ---------- */
@@ -389,25 +389,48 @@ function renderHealth(){
     return '<div class="metric"><div class="lb"><span class="'+cls+'">'+ico(icon,"ico-sm")+'</span>'+name+'</div><div class="v">'+(digits?(Math.round(v*10)/10):fmtN(v))+'<small>'+unit+'</small></div><div class="n">'+(pv!=null?deltaHTML(v-pv,"",goodUp,digits):"")+(note?" "+note:"")+'</div></div>';};
   const cat=(title,icon,cls,body,chartId)=>body?'<div class="card"><div class="card-hd">'+ico(icon,cls)+'<h3>'+title+'</h3><span class="cap">어제 · 그 전날 대비</span></div><div class="metrics">'+body+'</div>'+(chartId?'<div class="chartbox sm"><canvas id="'+chartId+'"></canvas></div>':"")+'</div>':"";
   h+='<div class="sec-title" style="margin-top:4px">측정 지표 <span class="seg" id="hRange"><button data-r="14">14일</button><button data-r="30">30일</button></span></div>';
-  h+=cat("활동","run","c-step",M("걸음","걸음 수","걸음","foot","c-step",true)+M("활동에너지","활동량","kcal","zap","c-zap",true)+M("운동시간","운동 시간","분","run","c-accent",true)+M("거리","이동 거리","km","foot","c-step",true,true)+M("오른층수","오른 층수","층","list","c-blue",true)+M("스탠드시간","서 있던 시간","분","clock","c-blue",true),"chSteps");
-  h+=cat("심장","heart","c-heart",M("안정심박","안정 시 심박","bpm","heart","c-heart",false)+M("HRV","심박 변이도(HRV)","ms","pulse","c-heart",true,true)+M("걷기심박","걸을 때 심박","bpm","pulse","c-heart"),"chHeart");
+  h+=cat("활동","run","c-step",M("걸음","걸음 수","걸음","foot","c-step",true)+M("활동에너지","활동량","kcal","zap","c-zap",true)+M("운동시간","운동 시간","분","run","c-accent",true)+M("거리","이동 거리","km","foot","c-step",true,true)+M("오른층수","오른 층수","층","list","c-blue",true)+M("스탠드시간","서 있던 시간","분","clock","c-blue",true))+stepGrid();
+  h+=cat("심장","heart","c-heart",M("안정심박","안정 시 심박","bpm","heart","c-heart",false)+M("HRV","심박 변이도(HRV)","ms","pulse","c-heart",true,true)+M("걷기심박","걸을 때 심박","bpm","pulse","c-heart"))+rangeCard();
   h+=cat("호흡·산소","lungs","c-blue",M("혈중산소","혈중 산소","%","drop","c-blue",true,true)+M("호흡수","수면 중 호흡수","회/분","lungs","c-blue",undefined,true)+M("VO2max","심폐 체력(VO₂max)","","run","c-accent",true,true,"최근 측정"));
   h+='<div class="card"><div class="card-hd">'+ico("shield","c-accent")+'<h3>측정되지 않는 항목</h3></div><div class="cap" style="line-height:1.7">스트레스: Apple Watch에 직접 측정값이 없어 표시하지 않아요.<br>체중·체성분: 건강 앱에 기록이 없어요. 기록하면 여기에 추세가 생겨요.</div></div>';
   h+='<div class="sec-title">오늘 기록 <small>물·커피·컨디션·식사</small></div>'+logCard();
-  h+='<div class="card"><div class="card-hd">'+ico("drop","c-blue")+'<h3>생활 기록 추세</h3><span class="cap">앱에서 누른 기록</span></div><div class="chartbox sm"><canvas id="chDrink"></canvas></div></div>';
+  h+=lifeGrid();
   h+='</div>';
   $("v-health").innerHTML=h;
   document.querySelectorAll("#hRange button").forEach(b=>{b.classList.toggle("on",+b.dataset.r===healthRange);b.onclick=()=>{healthRange=+b.dataset.r;renderHealth();};});
-  bindLog();drawHealthCharts();
+  bindLog();
 }
+function healthDays(n){const ids=[];for(let i=n;i>=1;i--)ids.push(addDays(TODAY,-i));return ids;}
+/* 걸음 달력: 칸 색이 진할수록 많이 걸은 날, 목표(8,000보) 넘으면 체크 */
+function stepGrid(){const ids=healthDays(healthRange),G=8000;const v=ids.map(d=>metric(d,"걸음"));const have=v.filter(x=>x!=null);if(!have.length)return"";
+  const mx=Math.max(G*1.5,...have);const hit=have.filter(x=>x>=G).length;
+  return '<div class="card"><div class="card-hd">'+ico("foot","c-step")+'<h3>걸음 달력</h3><span class="cap">최근 '+healthRange+'일</span></div>'+
+  '<div class="sumrow"><div><small>하루 평균</small><b>'+fmtN(avg(have))+'<small>보</small></b></div><div><small>목표 8,000보 달성</small><b>'+hit+'<small> / '+have.length+'일</small></b></div><div><small>가장 많이</small><b>'+fmtN(Math.max(...have))+'<small>보</small></b></div></div>'+
+  '<div class="hgrid">'+ids.map((d,i)=>{const x=v[i];const a=x==null?0:clamp(x/mx,0.08,1);const dt=parseYmd(d);
+    return '<div class="hc'+(x==null?" none":"")+(x!=null&&x>=G?" hit":"")+'" style="--a:'+a.toFixed(2)+'"><span class="d">'+(dt.getMonth()+1)+'/'+dt.getDate()+'</span><b>'+(x==null?"—":x>=1000?(Math.round(x/100)/10)+"k":x)+'</b>'+'</div>';}).join("")+'</div><div class="cap" style="margin-top:10px">색이 진할수록 많이 걸은 날, 초록 테두리는 8,000보를 넘긴 날이에요.</div></div>';}
+/* 평소 범위 막대: 회색 = 최근 30일 범위, 진한 띠 = 평소(중간 50%), 점 = 어제 */
+function rangeCard(){const rows=[["안정심박","안정 시 심박","bpm",false],["HRV","심박 변이도","ms",true],["걷기심박","걸을 때 심박","bpm",null]].map(([k,n,u,up])=>{
+    const ids=healthDays(30);const a=ids.map(d=>metric(d,k)).filter(x=>x!=null).sort((x,y)=>x-y);const y=metric(addDays(TODAY,-1),k);if(a.length<5||y==null)return"";
+    const q=p=>a[Math.min(a.length-1,Math.floor(p*(a.length-1)))];const lo=Math.min(a[0],y),hi=Math.max(a[a.length-1],y),sp=(hi-lo)||1,pos=x=>((x-lo)/sp*100).toFixed(1);
+    const q1=q(.25),q3=q(.75);const st=y<q1?"low":y>q3?"high":"mid";
+    const word=st==="mid"?"평소와 비슷해요":(st==="high"?"평소보다 높아요":"평소보다 낮아요");const good=st==="mid"||up===null?"":((st==="high")===up?" up":" down");
+    return '<div class="rg"><div class="t"><span>'+n+'</span><b>'+Math.round(y)+'<small> '+u+'</small></b></div><div class="rbar"><i class="band" style="left:'+pos(q1)+'%;width:'+(pos(q3)-pos(q1)).toFixed(1)+'%"></i><i class="dot'+good+'" style="left:'+pos(y)+'%"></i></div>'+
+      '<div class="cap"><span class="rw'+good+'">'+word+'</span> · 평소 '+Math.round(q1)+'–'+Math.round(q3)+' '+u+'</div></div>';}).join("");
+  return rows?'<div class="card"><div class="card-hd">'+ico("pulse","c-heart")+'<h3>평소 범위와 비교</h3><span class="cap">어제 · 최근 30일 기준</span></div><div class="ranges">'+rows+'</div><div class="cap" style="margin-top:12px">진한 띠가 평소 범위(최근 30일의 가운데 50%), 점이 어제 값이에요.</div></div>':"";}
+/* 물·커피 7일 표 */
+function lifeGrid(){const ids=healthDays(6).concat([TODAY]);
+  const row=(lab,k,col,goal)=>'<div class="lr"><span class="ln">'+lab+'</span>'+ids.map(d=>{const x=dayData(d);const v=x?x[k]:0;return '<span class="lc'+(goal&&v>=goal?" ok":"")+'" style="--c:'+col+';--a:'+(v?clamp(v/(goal||4),0.2,1).toFixed(2):0)+'">'+(v||"·")+'</span>';}).join("")+'</div>';
+  return '<div class="card"><div class="card-hd">'+ico("drop","c-blue")+'<h3>최근 7일 생활 기록</h3><span class="cap">앱에서 누른 기록</span></div><div class="life">'+
+    '<div class="lr hd"><span class="ln"></span>'+ids.map(d=>{const t=parseYmd(d);return '<span class="lc">'+(d===TODAY?"오늘":WEEK[t.getDay()])+'</span>';}).join("")+'</div>'+
+    row("💧 물","water","var(--blue)",8)+row("☕ 커피","coffee","var(--zap)",0)+'</div><div class="cap" style="margin-top:10px">물은 8잔을 채운 날에 테두리가 생겨요.</div></div>';}
 function logCard(){
   const cups=Array.from({length:Math.max(8,today.water)},(_,i)=>i<today.water);
   return '<div class="card" id="logCard"><div class="card-hd">'+ico("plus","c-accent")+'<h3>오늘 기록</h3><span class="cap">누르면 바로 저장돼요</span></div>'+
   '<div class="counter"><div class="meta"><div class="nm">💧 물</div><div class="big">'+today.water+'<small>/ 8잔</small></div></div><button class="pm" data-act="water-" aria-label="물 빼기">−</button><button class="pm add" data-act="water+" aria-label="물 더하기">＋</button></div>'+
   '<div class="stagebar" style="height:8px;margin:12px 0 16px">'+cups.map(on=>'<i style="flex:1;background:'+(on?"var(--blue)":"transparent")+'"></i>').join("")+'</div>'+
   '<div class="counter"><div class="meta"><div class="nm">☕ 커피</div><div class="big">'+today.coffee+'<small>잔</small></div></div><button class="pm" data-act="coffee-" aria-label="커피 빼기">−</button><button class="pm add" data-act="coffee+" aria-label="커피 더하기">＋</button></div>'+
-  '<div class="lbl" style="margin-left:0">컨디션</div><div class="opts cond5" id="oCond">'+COND.map(([n,e,l])=>'<button data-v="'+n+'" class="'+(today.condition===n?"on":"")+'">'+e+'<small>'+l+'</small></button>').join("")+'</div>'+
-  '<div class="lbl" style="margin-left:0">기분</div><div class="opts" id="oMood">'+MOOD.map(m=>'<button data-v="'+m+'" class="'+(today.mood===m?"on":"")+'">'+m+'</button>').join("")+'</div>'+
+  '<div class="lbl" style="margin-left:0">컨디션 <small>여러 개 골라도 돼요</small></div><div class="opts cond5" id="oCond">'+COND.map(([n,e,l])=>'<button data-v="'+n+'" class="'+(today.condition.includes(n)?"on":"")+'">'+e+'<small>'+l+'</small></button>').join("")+'</div>'+
+  '<div class="lbl" style="margin-left:0">기분 <small>여러 개 골라도 돼요</small></div><div class="opts" id="oMood">'+MOOD.map(m=>'<button data-v="'+m+'" class="'+(today.mood.includes(m)?"on":"")+'">'+m+'</button>').join("")+'</div>'+
   '<div class="lbl" style="margin-left:0">운동</div><div class="opts" id="oWork">'+WORK.map(w=>'<button data-v="'+w+'" class="'+(today.workout.includes(w)?"on":"")+'">'+w+'</button>').join("")+'</div>'+
   '<div class="lbl" style="margin-left:0">그 밖에</div><div><div class="trow"><span>💊 영양제</span><button class="toggle '+(today.supplement?"on":"")+'" id="tgSupp" aria-label="영양제"></button></div><div class="trow"><span>🍺 술</span><button class="toggle '+(today.alcohol?"on":"")+'" id="tgAlc" aria-label="술"></button></div></div>'+
   '<div class="lbl" style="margin-left:0">식사 · 메모</div><div class="fields"><input class="field" id="fBreakfast" placeholder="🍳 아침" maxlength="200"><input class="field" id="fLunch" placeholder="🍱 점심" maxlength="200"><input class="field" id="fDinner" placeholder="🍲 저녁" maxlength="200"><textarea class="field" id="fMemo" rows="3" placeholder="📝 메모" maxlength="1000"></textarea></div>'+
@@ -417,8 +440,8 @@ const FIELDS=[["fBreakfast","breakfast"],["fLunch","lunch"],["fDinner","dinner"]
 function bindLog(){
   FIELDS.forEach(([id,k])=>{const f=$(id);if(!f)return;f.value=today[k];f.addEventListener("input",e=>{today[k]=e.target.value;changed(false);});});
   const pick=(id,fn)=>{const b=$(id);if(b)b.querySelectorAll("button").forEach(x=>x.onclick=()=>fn(x.dataset.v));};
-  pick("oCond",v=>{v=+v;today.condition=today.condition===v?null:v;changed(true);});
-  pick("oMood",v=>{today.mood=today.mood===v?"":v;changed(true);});
+  pick("oCond",v=>{v=+v;today.condition=today.condition.includes(v)?today.condition.filter(x=>x!==v):today.condition.concat([v]).sort();changed(true);});
+  pick("oMood",v=>{today.mood=today.mood.includes(v)?today.mood.filter(x=>x!==v):today.mood.concat([v]);changed(true);});
   pick("oWork",v=>{today.workout=today.workout.includes(v)?today.workout.filter(x=>x!==v):today.workout.concat([v]);changed(true);});
   if($("tgSupp"))$("tgSupp").onclick=()=>{today.supplement=!today.supplement;changed(true);};
   if($("tgAlc"))$("tgAlc").onclick=()=>{today.alcohol=!today.alcohol;changed(true);};
@@ -567,7 +590,7 @@ function drawHealthCharts(){
     options:baseOpts({layout:{padding:{top:14}},plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:8,boxHeight:8,usePointStyle:true}},vl:null},scales:{x:{grid:{display:false},border:{display:false},ticks:{maxRotation:0,autoSkipPadding:8}},y:{beginAtZero:true,ticks:{stepSize:2},grid:{color:css("--line")},border:{display:false}}}})});
 }
 function dayData(id){return id===TODAY?today:(S.days[id]?normDay(id,S.days[id]):null);}
-function refreshCharts(){const t=curTab();if(t==="sleep"||t==="health")renderTab(t);}
+function refreshCharts(){const t=curTab();if(t==="sleep")renderTab(t);}
 window.__chartReady=()=>refreshCharts();
 
 /* ---------- 렌더 ---------- */
@@ -590,7 +613,7 @@ function changed(rerender){today.reflected=false;
 async function flush(){
   if(!CFG.key){setSaved("연결이 필요해요");location.hash="#me";return;}
   if(saving){clearTimeout(saveTimer);saveTimer=setTimeout(flush,500);return;}
-  saving=true;dirty=false;const body=Object.assign({},today,{workout:today.workout.slice()});
+  saving=true;dirty=false;const body=Object.assign({},today,{workout:today.workout.slice(),condition:today.condition.length?today.condition.join(","):null,mood:today.mood.join(",")});
   try{const res=await apiPost({action:"saveDay",day:body});
     if(res&&res.ok){setSaved("✓ 저장됨 · "+hhmm(new Date()));S.days[TODAY]=body;}
     else{setSaved(res&&res.error==="key"?"비밀번호가 맞지 않아요":"저장하지 못했어요");dirty=true;}
