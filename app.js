@@ -3,7 +3,7 @@
    점수 계산식: docs/scoring.md 와 아래 SCORE 모듈이 같아야 한다. */
 (function(){
 "use strict";
-const APP_VER="2026-11-20-2";
+const APP_VER="2026-11-20-3";
 const DEF_URL="https://script.google.com/macros/s/AKfycbxgoPMdod-SPlKH4gcsmEH5bg1GVYMmRDgropKc4qbqLEBAKAQlR95xIzrz75Zfh2o9dg/exec";
 const WEEK=["일","월","화","수","목","금","토"];
 const COND=[[1,"😫","지침"],[2,"😮‍💨","피곤"],[3,"🙂","보통"],[4,"😊","좋음"],[5,"🤩","최고"]];
@@ -40,6 +40,7 @@ const P={
   bed:'<path d="M3 18V7M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5"/><circle cx="7" cy="11" r="1.6"/>',
   clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  pill:'<rect x="3.5" y="8.5" width="17" height="7" rx="3.5" transform="rotate(-35 12 12)"/><path d="m9.2 8 4.6 6.6"/>',
   link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   shield:'<path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6z"/>',
   phone:'<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
@@ -83,10 +84,15 @@ function bedMin(t){const v=minOfDay(t);if(v==null)return null;return v<12*60?v+1
 let TODAY=ymd(new Date());
 const S={days:{},briefs:[],health:null,healthErr:"",loadedAt:null,online:null};
 let today=blankDay(TODAY),filter="전체",sleepRange=7,healthRange=14;
-function blankDay(id){return{date:id,water:0,coffee:0,workout:[],condition:[],mood:[],supplement:false,alcohol:false,breakfast:"",lunch:"",dinner:"",memo:"",reflected:false};}
+function blankDay(id){return{date:id,water:0,coffee:0,workout:[],condition:[],mood:[],supplement:[],alcohol:{lv:0,type:"",n:0},breakfast:"",lunch:"",dinner:"",memo:"",reflected:false};}
 function normDay(id,d){d=d||{};const b=v=>v===true||String(v).toUpperCase()==="TRUE";
   return{date:id,water:num(d.water)||0,coffee:num(d.coffee)||0,workout:(Array.isArray(d.workout)?d.workout:str(d.workout).split(",")).map(s=>str(s).trim()).filter(w=>WORK.includes(w)),
-  condition:str(d.condition).split(",").map(x=>num(x.trim())).filter(x=>x>=1&&x<=5),mood:str(d.mood).split(",").map(x=>x.trim()).filter(x=>MOOD.includes(x)),supplement:b(d.supplement),alcohol:b(d.alcohol),breakfast:str(d.breakfast),lunch:str(d.lunch),dinner:str(d.dinner),memo:str(d.memo),reflected:b(d.reflected)};}
+  condition:str(d.condition).split(",").map(x=>num(x.trim())).filter(x=>x>=1&&x<=5),mood:str(d.mood).split(",").map(x=>x.trim()).filter(x=>MOOD.includes(x)),supplement:parseSupp(d.supplement),alcohol:parseAlc(d.alcohol),breakfast:str(d.breakfast),lunch:str(d.lunch),dinner:str(d.dinner),memo:str(d.memo),reflected:b(d.reflected)};}
+/* 영양제: "TRUE"(예전 기록)=먹음, 그 밖엔 "종합비타민,비타민D" 목록 · 술: "FALSE"/"TRUE"(예전) 또는 "보통|소주 3" */
+function parseSupp(v){v=str(v).trim();if(!v||/^false$/i.test(v))return[];if(/^true$/i.test(v))return["먹음"];return v.split(",").map(x=>x.trim()).filter(Boolean);}
+function parseAlc(v){v=str(v).trim();if(!v||/^false$/i.test(v))return{lv:0,type:"",n:0};if(/^true$/i.test(v))return{lv:-1,type:"",n:0};
+  const[l,d]=v.split("|");const lv=Math.max(0,["안 마심","가볍게","보통","많이","매우 많이"].indexOf(l.trim()));const m=str(d).match(/(\S+)\s+(\d+)/);return{lv:lv||2,type:m?m[1]:"",n:m?+m[2]:0};}
+function serAlc(a){if(!a||a.lv===0)return"FALSE";if(a.lv===-1)return"TRUE";return["안 마심","가볍게","보통","많이","매우 많이"][a.lv]+(a.type&&a.n?"|"+a.type+" "+a.n:"");}
 const CFG={url:DEF_URL,key:(ls("ys_key")||"").trim()};
 
 /* ---------- 테마: 시스템(기본)/라이트/다크 ---------- */
@@ -94,7 +100,7 @@ const mq=window.matchMedia?matchMedia("(prefers-color-scheme: dark)"):null;
 const themePref=()=>ls("ys_theme")||"system";
 function applyTheme(){const p=themePref();const dark=p==="dark"||(p==="system"&&mq&&mq.matches);
   document.documentElement.setAttribute("data-theme",dark?"dark":"light");
-  $("themeColor").setAttribute("content",dark?"#14171C":"#F4F6F8");
+  $("themeColor").setAttribute("content",dark?"#0E1116":"#F6F5F2");
   refreshCharts();}
 if(mq){const f=()=>{if(themePref()==="system")applyTheme();};mq.addEventListener?mq.addEventListener("change",f):mq.addListener(f);}
 function setTheme(p){ls("ys_theme",p);applyTheme();renderMe();}
@@ -137,7 +143,7 @@ const SCORE={
     const W=parts.reduce((a,p)=>a+p.w,0);
     return{score:Math.round(parts.reduce((a,p)=>a+p.w*clamp(p.v,0,1),0)/W*100),parts,sleep:ss,night:n};
   },
-  label(s){return s>=85?["아주 좋음",""]:s>=70?["좋은 상태",""]:s>=55?["보통","gray"]:s>=40?["회복 필요","warn"]:["충분한 휴식 필요","bad"];}
+  label(s){return s>=85?["매우 좋음",""]:s>=70?["좋음",""]:s>=55?["보통","gray"]:s>=40?["주의","warn"]:["쉬어가기","bad"];}
 };
 
 /* ---------- 건강 데이터 접근 ---------- */
@@ -161,7 +167,7 @@ let toastT=null;
 function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove("on"),1800);}
 function setStatus(t,state){$("status").textContent=t;$("sDot").className="sd"+(state==="off"?" off":state==="wait"?" wait":"");}
 function openSheet(title,html){$("sheetTitle").textContent=title;$("sheetBody").innerHTML=html;$("sheetBody").scrollTop=0;$("scrim").classList.add("on");$("sheet").classList.add("on");}
-function closeSheet(){$("scrim").classList.remove("on");$("sheet").classList.remove("on");}
+function closeSheet(){sheetFn=null;$("scrim").classList.remove("on");$("sheet").classList.remove("on");}
 $("sheetClose").innerHTML=ico("x","ico-sm");$("scrim").onclick=closeSheet;$("sheetClose").onclick=closeSheet;
 
 /* ---------- 라우팅 (탭 6개) ---------- */
@@ -172,10 +178,10 @@ function curTab(){let t=(location.hash||"").replace("#","");t=ALIAS[t]||t;return
 function route(keepScroll){const t=curTab();
   document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on",v.id==="v-"+t));
   document.querySelectorAll(".tabbar a").forEach(a=>a.classList.toggle("on",a.dataset.tab===t));
-  $("fab").style.display=(t==="home")?"flex":"none";
+  $("fab").style.display=(t==="sleep")?"flex":"none";
   if(!keepScroll)window.scrollTo(0,0);renderTab(t);if(t==="brief")markSeen();}
 window.addEventListener("hashchange",()=>route(false));
-$("fab").innerHTML=ico("plus");$("fab").onclick=()=>{location.hash="#health";setTimeout(()=>{const e=$("logCard");if(e)e.scrollIntoView({behavior:"smooth",block:"start"});},150);};
+$("fab").innerHTML=ico("plus");$("fab").onclick=()=>openPicker("빠른 기록",()=>condPicker()+'<div class="lbl" style="margin-left:0">💊 영양제</div>'+(mySupps().length?chips("supp",mySupps(),v=>today.supplement.includes(v)):"")+'<div class="lbl" style="margin-left:0">🍺 술</div>'+chips("alc",ALC.map((l,i)=>[i,l]),v=>today.alcohol.lv===+v||(+v===0&&!today.alcohol.lv),"alc5"));
 
 /* ---------- 읽음 표시 ---------- */
 const seenAt=()=>Number(ls("ys_seen")||0);
@@ -222,55 +228,177 @@ function stageBar(n){const tot=(n.deep||0)+(n.core||0)+(n.rem||0)+(n.awakeMin||0
   return '<div class="stagebar" title="단계별 비율">'+seg(n.deep,"var(--deep)")+seg(n.core,"var(--core)")+seg(n.rem,"var(--rem)")+seg(n.awakeMin,"var(--awake)")+'</div>'+
   '<div class="legend4"><div><span class="dot" style="background:var(--deep)"></span>깊은 수면<b>'+hm(n.deep)+'</b></div><div><span class="dot" style="background:var(--core)"></span>얕은 수면<b>'+hm(n.core)+'</b></div><div><span class="dot" style="background:var(--rem)"></span>REM 수면<b>'+hm(n.rem)+'</b></div><div><span class="dot" style="background:var(--awake)"></span>깨어 있음<b>'+hm(n.awakeMin)+'</b></div></div>';}
 
-function condCard(){
-  const c=SCORE.condition(TODAY);let h='<div class="card cond">'+WAVE+'<div class="row"><h3 style="margin:0;font-size:var(--fs-h3);font-weight:750">오늘의 컨디션</h3>';
-  if(c.missing){return h+'<span class="badge gray">대기</span></div><div class="empty"><b>'+esc(c.missing)+'</b>아침에 폰 뒤를 톡톡해 건강 백업을 보내면 점수가 계산돼요.</div></div>';}
-  const[lab,cls]=SCORE.label(c.score);const y=SCORE.condition(addDays(TODAY,-1));
-  h+='<span class="badge '+cls+'">'+lab+'</span></div><div class="score"><span class="num">'+c.score+'</span><span class="of">/100</span>'+(y.score!=null?deltaHTML(c.score-y.score,"",true):"")+'</div>';
-  const hp=c.parts.find(p=>p.k==="HRV"),rp=c.parts.find(p=>p.k==="안정심박");
-  h+='<div class="recov">'+(hp?'<span class="chip">HRV <b>'+Math.round(hp.raw)+'</b>ms · 평소 '+Math.round(hp.base)+'</span>':"")+(rp?'<span class="chip">안정심박 <b>'+Math.round(rp.raw)+'</b> · 평소 '+Math.round(rp.base)+'</span>':"")+'</div>';
-  const ai=briefAI("condition");h+=aiBlock(ai||condSummary(c),!!ai);
-  return h+'</div>';
+/* ---------- 상태 라벨 5단계: 글자 + 아이콘 + 색 (색만으로 구분하지 않음) ---------- */
+const LV5=[[85,"매우 좋음","lv1","spark"],[70,"좋음","lv2","check"],[55,"보통","lv3","list"],[40,"주의","lv4","bell"],[0,"쉬어가기","lv5","bed"]];
+function lv5(s){return LV5.find(x=>s>=x[0]);}
+function lvBadge(s){const l=lv5(s);return '<span class="lvb '+l[2]+'">'+ico(l[3],"ico-xs")+l[1]+'</span>';}
+
+/* ---------- 개인 기준선(최근 30일, 오늘 제외) ---------- */
+function baseline(k,upto){const v=[];for(let i=1;i<=30;i++){const x=metric(addDays(upto||TODAY,-i),k);if(x!=null)v.push(x);}
+  if(v.length<5)return null;const s=v.slice().sort((a,b)=>a-b);const q=p=>s[Math.min(s.length-1,Math.floor(p*(s.length-1)))];
+  return{med:median(v),q1:q(.25),q3:q(.75),min:s[0],max:s[s.length-1],n:v.length};}
+function vsBase(k,ref){const y=metric(ref,k),b=baseline(k,addDays(ref,1));if(y==null||!b)return null;
+  const st=y<b.q1?(y<b.q1-(b.q3-b.q1)?"낮음":"약간 낮음"):y>b.q3?(y>b.q3+(b.q3-b.q1)?"높음":"약간 높음"):"평소 범위";return{y,b,st};}
+
+/* ---------- 오늘의 한 문장 (규칙 기반 — AI 문장이 있으면 그걸 우선) ---------- */
+function bodyLine(){
+  const c=SCORE.condition(TODAY);const tb=targetBed(lastSleeps(7).reduce((a,x)=>a+Math.max(0,420-(x.asleep||0)),0));
+  if(c.missing)return{head:"아직 오늘 몸 상태를 판단할 데이터가 없어요.",tip:"폰 잠금을 풀고 Health Auto Export를 열면 지난밤 수면이 들어와요.",facts:[],score:null};
+  const n=c.night,prev=sleepsBefore(n.date).slice(0,7),pa=avg(prev.map(x=>x.asleep));const facts=[];let bad=0;
+  if(pa!=null&&prev.length>=3){const d=n.asleep-pa;facts.push(Math.abs(d)<20?"수면은 평소만큼("+hm(n.asleep)+")":"수면이 평소보다 "+hm(Math.abs(d))+" "+(d<0?"짧고":"길고"));if(d<-40)bad++;}
+  else facts.push("지난밤 "+hm(n.asleep)+" 잤고");
+  const ref=addDays(TODAY,-1);const h=vsBase("HRV",ref),r=vsBase("안정심박",ref);
+  const rec=[];if(h&&/낮음/.test(h.st)){rec.push("HRV가 평소보다 낮아요");bad++;}if(r&&/높음/.test(r.st)){rec.push("안정심박이 평소보다 "+Math.round(r.y-r.b.med)+"bpm 높아요");bad++;}
+  facts.push(rec.length?rec.join(", "):(h||r)?"회복 지표(HRV·안정심박)는 평소 범위예요":"회복 지표는 아직 쌓이는 중이에요");
+  const y=dayData(ref);if(y&&y.alcohol.lv>=2)facts.push("어제 술을 마신 영향이 남아 있을 수 있어요");
+  const s=c.score;let tip;
+  if(s>=70&&!bad)tip="오늘은 평소 강도로 운동해도 괜찮은 날이에요.";
+  else if(s>=55)tip="무리하지 않는 선에서 평소처럼 지내면 돼요. 카페인은 오후 2시 전까지만요.";
+  else if(s>=40)tip="강한 운동보다 가벼운 걷기·스트레칭이 맞아요. 오늘은 "+tb.bed+" 전에 자는 걸 목표로 해요.";
+  else tip="오늘은 쉬어 가는 날이에요. 일정은 꼭 필요한 것만, 취침은 "+tb.bed+" 전으로 잡아요.";
+  return{head:facts.slice(0,2).join(" ")+".",tip,facts,score:s,c,extra:facts[2]||""};
 }
-function sleepCard(link){
-  let n=sleepOn(TODAY),stale=false;if(!n){n=latestSleep();stale=!!n;}
-  let h='<div class="card"><div class="card-hd">'+ico("moon","c-blue")+'<h3>수면 분석</h3>'+(link?'<a class="more" href="#sleep">더보기'+ico("chev","ico-sm")+'</a>':"")+'</div>';
-  if(!n)return h+'<div class="empty"><b>수면 기록이 없어요</b>Apple Watch를 차고 자고, 아침에 폰 뒤를 톡톡해 주세요.</div></div>';
-  const s=SCORE.sleep(n,sleepsBefore(n.date));const p=sleepsBefore(n.date)[0];const ps=p?SCORE.sleep(p,sleepsBefore(p.date)):null;
-  const eff=n.inBed?n.asleep/n.inBed:null;
-  if(stale)h+='<div class="cap" style="margin:-4px 0 10px">'+shortDate(n.date)+' 아침 기준 · 오늘 기록은 아침 백업 후 반영돼요</div>';
-  h+='<div class="sleep-top"><div class="l"><div class="big">'+hmHTML(n.asleep)+'</div><div class="sc">수면 점수 <b>'+(s?s.score+"점":"—")+'</b> '+(s&&ps?deltaHTML(s.score-ps.score,"",true):"")+'</div></div><div class="vdiv"></div>'+
-     '<div class="eff">'+ring(eff||0,"var(--accent)")+'<div class="t"><small>수면 효율</small><b>'+(eff?Math.round(eff*100)+"%":"—")+'</b></div></div></div>';
-  h+=stageBar(n);
-  const ai=stale?"":briefAI("sleep");
-  h+='<div class="insight"><span class="bulb">'+ico("bulb")+'</span><div>'+(ai?'<div class="ai-tag">'+ico("spark","ico-sm")+'AI 해석</div>':"")+esc(ai||sleepSummary(n))+'</div></div>';
-  return h+'</div>';
-}
-function minisRow(){
-  const ref=metric(TODAY,"걸음")!=null&&new Date().getHours()>=20?TODAY:addDays(TODAY,-1);const pre=addDays(ref,-1);
-  const lab=ref===TODAY?"오늘":"어제";
-  const m=(icon,cls,name,k,unit,goodUp)=>{const v=metric(ref,k),pv=metric(pre,k);
-    return '<div class="mini"><div class="lb"><span class="'+cls+'">'+ico(icon,"ico-sm")+'</span>'+name+'</div><div class="v">'+(v==null?"—":fmtN(v))+(v!=null&&unit?'<small>'+unit+'</small>':"")+'</div>'+(v!=null&&pv!=null?deltaHTML(v-pv,"",goodUp):'<span class="cap">'+lab+'</span>')+'</div>';};
-  return '<div><div class="cap" style="margin:0 4px 6px">'+lab+' 기준 · 그 전날 대비</div><div class="minis">'+m("foot","c-step","걸음 수","걸음","",true)+m("heart","c-heart","안정심박","안정심박","bpm",false)+m("zap","c-zap","활동량","활동에너지","kcal",true)+'</div></div>';
-}
-function briefCard(){
-  const b=heroBrief();const w=weatherTile();
-  let h='<div class="card"><div class="card-hd">'+ico("doc","c-accent")+'<h3>오늘의 브리핑</h3><a class="more" href="#brief">더보기'+ico("chev","ico-sm")+'</a></div>';
-  const tx=b?'<b>'+esc(str(b.headline)||"오늘의 브리핑")+'</b>'+esc(str(b.sub))+'<div class="cap" style="margin-top:6px">'+(KIND_ICON[b.kind]||"")+" "+esc(b.kind)+" · "+hhmm(b.createdAt)+'</div>'
-    :'<b>'+(new Date().getHours()<7?"아침 7시에 브리핑이 도착해요":"아직 오늘 브리핑이 없어요")+'</b>도착하면 여기에 바로 떠요.';
-  const wx='<div class="wx">'+ico(w&&/비|눈|흐/.test(str(w.value)+str(w.note))?"cloud":"sun")+'<b>'+esc(w?str(w.value):"날씨")+'</b><small>'+esc(w?str(w.note):"브리핑 대기")+'</small></div>';
-  h+='<div class="brief"><div class="tx">'+tx+'</div>'+wx+'</div>';
-  if(b)h+='';
-  return h+'</div>';
-}
-function todayPlanCard(){
-  const items=planItems(TODAY);const b=morningBrief();const prep=[];
-  if(b){arr(b.sections).forEach(s=>{if(/챙길|준비/.test(str(s.title)))arr(s.items).forEach(i=>prep.push(str(i)));});}
-  let h='<div class="card"><div class="card-hd">'+ico("cal","c-blue")+'<h3>오늘 일정 · 준비</h3><a class="more" href="#plan">일정'+ico("chev","ico-sm")+'</a></div>';
-  if(!items.length&&!prep.length)return h+'<div class="empty" style="padding-top:0">오늘 등록된 일정이 없어요.</div></div>';
-  h+='<div class="list">'+items.slice(0,5).map(i=>'<div class="li"><div class="time">'+esc(i.time||"종일")+'</div><div class="m"><div class="t">'+esc(i.title)+'</div>'+(i.sub?'<div class="s">'+esc(i.sub)+'</div>':"")+'</div></div>').join("")+'</div>';
-  if(prep.length)h+='<div class="lbl" style="margin-left:0">🎒 준비할 것</div><ul class="tips">'+prep.slice(0,4).map(p=>'<li>'+esc(p)+'</li>').join("")+'</ul>';
-  return h+'</div>';
+
+/* ---------- 점심 기본값 (평일·공휴일 제외, 설정에서 끄거나 장소 변경) ---------- */
+const HOLI=["2026-12-25","2027-01-01","2027-02-06","2027-02-07","2027-02-08","2027-02-09","2027-03-01","2027-05-05","2027-05-13","2027-06-06","2027-08-15","2027-08-16","2027-09-14","2027-09-15","2027-09-16","2027-10-03","2027-10-04","2027-10-09","2027-10-11","2027-12-25","2027-12-27"];
+const lunchPlace=()=>ls("ys_lunchplace")||"교직원식당";
+const lunchDefOn=()=>ls("ys_lunchdef")!=="off";
+function isWorkday(d){const w=parseYmd(d).getDay();return w>=1&&w<=5&&!HOLI.includes(d);}
+function applyLunchDefault(){if(!CFG.key||!S.loadedAt||dirty||saving||!lunchDefOn()||!isWorkday(TODAY)||today.lunch||new Date().getHours()<11||ls("ys_lunchauto")===TODAY)return;
+  ls("ys_lunchauto",TODAY);today.lunch=lunchPlace();changed(false);}
+
+/* ---------- 식사·술·영양제 선택지 ---------- */
+const MEAL={breakfast:["집밥","간단히","배달","외식","건너뜀"],lunch:null,dinner:["집밥","배달","외식","간단히","건너뜀"]};
+const mealOpts=k=>k==="lunch"?[lunchPlace(),"도시락","외식","배달","건너뜀"]:MEAL[k];
+const ALC=["안 마심","가볍게","보통","많이","매우 많이"];
+const DRINK={"소주":[50,.165,"잔"],"맥주":[500,.045,"잔(500cc)"],"와인":[150,.12,"잔"],"위스키":[30,.40,"잔"],"막걸리":[200,.06,"잔"]};
+function alcGrams(a){const d=a&&DRINK[a.type];return d&&a.n?Math.round(d[0]*d[1]*0.789*a.n):null;}
+function alcText(a){if(!a||!a.lv)return a&&a.lv===-1?"마심":"";return ALC[a.lv]+(a.type&&a.n?" · "+a.type+" "+a.n+"잔":"");}
+const SUPP_ALL=["종합비타민","비타민D","오메가3","마그네슘","유산균","철분","비타민C","비타민B군","루테인"];
+function mySupps(){try{const a=JSON.parse(ls("ys_supps")||"null");if(Array.isArray(a))return a;}catch(e){}return["종합비타민"];}
+function setMySupps(a){ls("ys_supps",JSON.stringify(a));}
+
+/* ---------- 칩 공통 (data-pick 으로 어디서든 같은 동작) ---------- */
+function chips(kind,opts,isOn,cls){return '<div class="pk '+(cls||"")+'">'+opts.map(o=>{const v=Array.isArray(o)?o[0]:o,l=Array.isArray(o)?o[1]:o;
+  return '<button data-pick="'+kind+'" data-v="'+esc(v)+'" class="'+(isOn(v)?"on":"")+'" aria-pressed="'+(isOn(v)?"true":"false")+'">'+l+'</button>';}).join("")+'</div>';}
+let sheetFn=null;
+function openPicker(title,fn){sheetFn=fn;openSheet(title,fn());}
+function refreshSheet(){if(sheetFn&&$("sheet").classList.contains("on"))$("sheetBody").innerHTML=sheetFn();}
+const tog=(a,v)=>a.includes(v)?a.filter(x=>x!==v):a.concat([v]);
+document.addEventListener("click",e=>{const b=e.target.closest("[data-pick]");if(!b)return;const k=b.dataset.pick,v=b.dataset.v;
+  if(k==="cond")today.condition=tog(today.condition,+v).sort();
+  else if(k==="mood")today.mood=tog(today.mood,v);
+  else if(k==="work")today.workout=tog(today.workout,v);
+  else if(k==="supp")today.supplement=tog(today.supplement.filter(x=>x!=="먹음"),v);
+  else if(k==="alc"){const n=+v;today.alcohol=Object.assign({},today.alcohol,{lv:today.alcohol.lv===n?0:n});if(!today.alcohol.lv)today.alcohol={lv:0,type:"",n:0};}
+  else if(k==="alct"){today.alcohol=Object.assign({},today.alcohol,{type:today.alcohol.type===v?"":v});if(today.alcohol.type&&!today.alcohol.n)today.alcohol.n=1;if(!today.alcohol.lv)today.alcohol.lv=2;}
+  else if(k==="mysupp"){setMySupps(tog(mySupps(),v));refreshSheet();renderTab(curTab());return;}
+  else if(k.startsWith("meal-")){const f=k.slice(5);mealOpen.delete(f);if(v==="직접 입력"){openPicker(({breakfast:"아침",lunch:"점심",dinner:"저녁"})[f]+" 직접 입력",()=>mealInputSheet(f));setTimeout(()=>{const i=$("mealIn");if(i)i.focus();},300);return;}today[f]=today[f]===v?"":v;}
+  changed(true);refreshSheet();});
+document.addEventListener("click",e=>{const a=e.target.closest("[data-act]");if(!a)return;const act=a.dataset.act;
+  if(act==="alc+"){today.alcohol.n=Math.min((today.alcohol.n||0)+1,30);if(!today.alcohol.lv)today.alcohol.lv=2;changed(true);refreshSheet();}
+  if(act==="alc-"){today.alcohol.n=Math.max((today.alcohol.n||0)-1,0);changed(true);refreshSheet();}
+  if(act==="suppAdd"){const i=$("suppIn");const v=i&&i.value.trim();if(v){const a=mySupps();if(!a.includes(v))setMySupps(a.concat([v]));i.value="";refreshSheet();renderTab(curTab());}}
+  if(act==="mealOpen"){mealOpen.add(a.dataset.f);renderTab(curTab());}
+  if(act==="mealSave"){const i=$("mealIn");if(i){today[i.dataset.f]=i.value.trim();changed(true);closeSheet();}}
+  if(act==="picker"){const p=PICKERS[a.dataset.p];if(p)openPicker(p[0],p[1]);}});
+function mealInputSheet(f){return '<input class="field" id="mealIn" data-f="'+f+'" maxlength="200" placeholder="예: 김치찌개" value="'+esc(today[f])+'"><button class="btn-main" data-act="mealSave" style="margin-top:12px">저장</button>';}
+
+/* ---------- 기록 묶음 (홈 시트·건강 탭이 같이 씀) ---------- */
+function condPicker(){return '<div class="lbl" style="margin-left:0">컨디션 <small>여러 개 골라도 돼요</small></div>'+chips("cond",COND.map(([n,e,l])=>[n,e+'<small>'+l+'</small>']),v=>today.condition.includes(+v),"cond5")+
+  '<div class="lbl" style="margin-left:0">기분 <small>여러 개 골라도 돼요</small></div>'+chips("mood",MOOD,v=>today.mood.includes(v));}
+function alcPicker(){const a=today.alcohol;const g=alcGrams(a);
+  return '<div class="lbl" style="margin-left:0">얼마나 마셨나요</div>'+chips("alc",ALC.map((l,i)=>[i,l]).slice(1),v=>a.lv===+v,"alc5")+
+  '<div class="lbl" style="margin-left:0">자세히 <small>선택 · 종류와 잔 수</small></div>'+chips("alct",Object.keys(DRINK),v=>a.type===v)+
+  (a.type?'<div class="counter" style="margin-top:12px"><div class="meta"><div class="nm">'+esc(a.type)+'</div><div class="big">'+(a.n||0)+'<small>'+DRINK[a.type][2]+'</small></div></div><button class="pm" data-act="alc-" aria-label="잔 빼기">−</button><button class="pm add" data-act="alc+" aria-label="잔 더하기">＋</button></div>'+
+    (g?'<div class="cap" style="margin-top:8px">알코올 약 '+g+'g · 표준잔(10g) '+(Math.round(g/10*10)/10)+'잔 · 이번 주 합계 '+weekAlc()+'g</div>':""):"")+
+  '<div class="cap" style="margin-top:12px">기록은 다음 날 수면·심박과 같이 보여 드릴게요.</div>';}
+function weekAlc(){let s=0;for(let i=0;i<7;i++){const d=dayData(addDays(TODAY,-i));const g=d&&alcGrams(d.alcohol);if(g)s+=g;}return s;}
+function suppPicker(){const my=mySupps();
+  return (my.length?'<div class="lbl" style="margin-left:0">오늘 먹은 영양제</div>'+chips("supp",my,v=>today.supplement.includes(v)):'<div class="cap">아래에서 내 영양제를 먼저 골라 주세요.</div>')+
+  '<div class="lbl" style="margin-left:0">내 영양제 목록 <small>한 번 정하면 매일 체크만</small></div>'+chips("mysupp",Array.from(new Set(SUPP_ALL.concat(my))),v=>my.includes(v),"soft")+
+  '<div class="addrow"><input class="field" id="suppIn" maxlength="30" placeholder="직접 입력 (예: 콜라겐)"><button class="btn-sub" data-act="suppAdd">추가</button></div>';}
+function workPicker(){return chips("work",WORK,v=>today.workout.includes(v));}
+const PICKERS={cond:["컨디션 · 기분",condPicker],alc:["술",alcPicker],supp:["영양제",suppPicker],work:["운동",workPicker]};
+
+/* =====================================================================
+   홈 — 시안 D(하루 타임라인) + A(오늘의 한 문장)
+   ===================================================================== */
+function homeHeader(){const d=parseYmd(TODAY);const[g]=greeting();const age=healthAge();
+  const sync=lastHealthAt()?'<span class="sync'+(age!=null&&age>SYNC_LATE_H?" late":"")+'">'+ico("refresh","ico-xs")+esc(String(lastHealthAt()).slice(11,16)||"")+' 동기화</span>':"";
+  return '<div class="hhd"><div><div class="dt">'+(d.getMonth()+1)+'월 '+d.getDate()+'일 '+WEEK[d.getDay()]+'요일</div><div class="gr">'+g+', 연서 씨</div></div>'+sync+'<a class="iconbtn" href="#me" aria-label="내 정보">'+ico("user")+'</a></div>';}
+function heroCard(){const L=bodyLine();const ai=briefAI("condition");
+  let h='<div class="hero">';
+  if(L.score==null)return h+'<div class="one">'+esc(L.head)+'</div><div class="tip">'+esc(L.tip)+'</div><button class="btn-sub" onclick="load(true)">'+ico("refresh","ico-sm")+' 지금 다시 불러오기</button></div>';
+  const c=L.c;const l=lv5(c.score);
+  h+='<div class="tag">'+ico(ai?"spark":"list","ico-xs")+(ai?"AI 해석":"오늘의 한 문장")+'</div><div class="one">'+esc(ai||L.head)+'</div><div class="tip">'+esc(L.tip)+'</div>'+(L.extra?'<div class="cap" style="margin-top:6px">'+esc(L.extra)+'</div>':"");
+  // 링 + 구성 3줄
+  const y=SCORE.condition(addDays(TODAY,-1));
+  const pv=k=>{const p=c.parts.find(x=>x.k===k);return p?p.v:null;};
+  const rec=avg([pv("HRV"),pv("안정심박")]);const rb=[vsBase("HRV",addDays(TODAY,-1)),vsBase("안정심박",addDays(TODAY,-1))];const recOff=(rb[0]&&/낮음/.test(rb[0].st))||(rb[1]&&/높음/.test(rb[1].st));const st=metric(addDays(TODAY,-1),"걸음");
+  const line=(name,v,txt)=>'<div class="cl"><span class="n">'+name+'</span><span class="bar"><i style="width:'+Math.round(clamp(v==null?0:v,0,1)*100)+'%"></i></span><span class="t">'+txt+'</span></div>';
+  h+='<div class="cond2"><div class="rwrap">'+ring(c.score/100,"var(--accent)")+'<div class="sc-in"><b>'+c.score+'</b><small>컨디션</small></div></div><div class="cls">'+lvBadge(c.score)+
+    line("수면",pv("수면"),c.sleep.score+"점")+line("회복",rec,rec==null?"기록 쌓는 중":rec<.35?"회복 부족":recOff||rec<.6?"조금 떨어짐":"평소 범위")+line("활동",st==null?null:st/8000,st==null?"—":"어제 "+fmtN(st)+"보")+'</div></div>';
+  // 어제 대비 이유 칩
+  if(y&&y.parts){const ch=c.parts.map(p=>{const q=y.parts.find(x=>x.k===p.k);if(!q)return null;const d=Math.round((p.v-q.v)*p.w);return Math.abs(d)>=2?[p.k==="최근 3일 수면"?"3일 수면":p.k,d]:null;}).filter(Boolean);
+    if(ch.length)h+='<div class="why"><span class="cap">어제보다 '+(c.score-y.score>=0?"+":"")+(c.score-y.score)+'점</span>'+ch.map(([k,d])=>'<span class="wc '+(d>0?"up":"down")+'">'+k+' '+(d>0?"+":"")+d+'</span>').join("")+'</div>';}
+  return h+'</div>';}
+function todoCard(){const hr=new Date().getHours();const L=bodyLine();const out=[];const stT=metric(TODAY,"걸음");
+  const tb=targetBed(lastSleeps(7).reduce((a,x)=>a+Math.max(0,420-(x.asleep||0)),0));
+  if(hr<11){if(!today.water)out.push(["drop","일어나서 물 한 잔 먼저 마셔요"]);if(L.score!=null&&L.score<55)out.push(["foot","오늘 운동은 가벼운 걷기·스트레칭으로"]);if(today.coffee>=1)out.push(["coffee","커피는 오늘 "+(today.coffee>=2?"이미 "+today.coffee+"잔, 더는 쉬어요":"1잔 더까지만, 오후 2시 전에")]);}
+  else if(hr<14){if(isWorkday(TODAY)&&(!today.lunch||today.lunch===lunchPlace()))out.push(["check","점심이 "+lunchPlace()+"이 아니면 아래에서 바꿔 주세요"]);out.push(["foot","점심 먹고 10분 걷기"+(stT!=null?" · 지금 "+fmtN(stT)+"보":"")]);}
+  else if(hr<18){if(today.coffee>0)out.push(["coffee","지금부터 카페인은 쉬어요 (밤잠 영향)"]);if(today.water<5)out.push(["drop","물 "+(6-today.water)+"잔 더 마셔요"]);}
+  else if(hr<21){if(stT!=null&&stT<8000){const r=8000-stT;out.push(["foot","목표까지 "+fmtN(r)+"보 · 약 "+Math.ceil(r/110)+"분 걷기"]);}if(!today.condition.length)out.push(["list","오늘 컨디션·기분 기록하기"]);}
+  else{out.push(["moon","목표 취침 "+tb.bed+" · 30분 전부터 화면 밝기 낮추기"]);if(!today.condition.length)out.push(["list","자기 전 컨디션·기분 한 번 눌러 두기"]);}
+  if(!out.length)return"";
+  return '<div class="card"><div class="card-hd">'+ico("bulb","c-zap")+'<h3>지금 할 일</h3></div><div class="todo">'+out.slice(0,3).map(([i,t])=>'<div class="td">'+ico(i,"ico-sm")+'<span>'+esc(t)+'</span></div>').join("")+'</div></div>';}
+function quickCard(){const a=today.alcohol;
+  const q=(attrs,icon,lab,val,on)=>'<button class="qk'+(on?" on":"")+'" '+attrs+'><span class="qi">'+icon+'</span><b>'+lab+'</b><small>'+val+'</small></button>';
+  return '<div class="card"><div class="card-hd">'+ico("plus","c-accent")+'<h3>빠른 기록</h3><span class="cap" id="savedNote">'+esc(savedMsg)+'</span></div><div class="qgrid">'+
+    q('data-act="water+"',"💧","물",today.water+" / 8잔",today.water>0)+q('data-act="coffee+"',"☕","커피",today.coffee+"잔",today.coffee>0)+
+    q('data-act="picker" data-p="cond"',"🙂","컨디션",today.condition.length||today.mood.length?[today.condition.map(n=>COND[n-1][2]).join("·"),today.mood.join("·")].filter(Boolean).join(" / "):"누르기",today.condition.length+today.mood.length>0)+
+    q('data-act="picker" data-p="alc"',"🍺","술",alcText(a)||"안 마심",a.lv!==0)+
+    q('data-act="picker" data-p="supp"',"💊","영양제",today.supplement.length?today.supplement.length+"개 먹음":"안 먹음",today.supplement.length>0)+
+    q('data-act="picker" data-p="work"',"🏃","운동",today.workout.length?today.workout.join("·"):"없음",today.workout.length>0)+
+    '</div><div class="cap" style="margin-top:8px">물·커피는 누를 때마다 1잔씩 늘어요. 빼려면 건강 탭에서요.</div></div>';}
+const mealOpen=new Set();
+function timelineCard(){const n=sleepOn(TODAY);const tb=targetBed(lastSleeps(7).reduce((a,x)=>a+Math.max(0,420-(x.asleep||0)),0));const hr=new Date().getHours();
+  const row=(time,icon,title,body,state)=>'<div class="tl '+(state||"")+'"><div class="tt">'+time+'</div><div class="tdot">'+ico(icon,"ico-xs")+'</div><div class="tb"><b>'+title+'</b>'+body+'</div></div>';
+  const meal=(f,lab,time,from)=>{const v=today[f];const opts=mealOpts(f).concat(["직접 입력"]);const custom=v&&!opts.includes(v);
+    const body=v&&!mealOpen.has(f)?'<button class="lnk" data-act="mealOpen" data-f="'+f+'" style="margin-left:0">바꾸기</button>':chips("meal-"+f,custom?[v].concat(opts):opts,x=>x===v,"sm2");
+    return row(time,"check",lab+(v?' <span class="tv">'+esc(v)+'</span>':""),body,v?"done":hr>=from?"now":"");};
+  let h='<div class="card"><div class="card-hd">'+ico("clock","c-blue")+'<h3>오늘 하루</h3><span class="cap">한 번 누르면 기록돼요</span></div><div class="tline">';
+  h+=row(n?hhmmStr(n.wake):"—","sun","기상",n?'<span class="cap">'+hm(n.asleep)+' 잤어요 · <a href="#sleep">수면 보기</a></span>':'<span class="cap">수면 기록 대기 중</span>',n?"done":"");
+  h+=meal("breakfast","아침","08:00",7)+meal("lunch","점심","12:00",11);
+  h+=row("—","run","운동"+(today.workout.length?' <span class="tv">'+esc(today.workout.join("·"))+'</span>':""),'<button class="lnk" data-act="picker" data-p="work">'+(today.workout.length?"바꾸기":"기록하기")+'</button>',today.workout.length?"done":"");
+  h+=meal("dinner","저녁","18:30",17);
+  h+=row(tb.bed,"moon","취침 목표",'<span class="cap">내일 '+tb.wake+' 기상 기준</span>',hr>=21?"now":"");
+  return h+'</div></div>';}
+function keyNums(){const ref=addDays(TODAY,-1);
+  const one=(k,name,unit,goodUp)=>{const v=vsBase(k,ref);const y=metric(ref,k);if(y==null)return"";
+    const dir=v?(v.y>v.b.med?"▲":"▼"):"";const good=v&&v.st!=="평소 범위"?((/높음/.test(v.st))===goodUp?"up":"down"):"";
+    return '<div class="kn"><small>'+name+'</small><b>'+fmtN(y)+'<i>'+unit+'</i></b><span class="'+good+'">'+(v?dir+" "+v.st:"기준선 쌓는 중")+'</span></div>';};
+  const r=one("걸음","어제 걸음","보",true)+one("안정심박","안정심박","bpm",false)+one("HRV","HRV","ms",true);
+  return r?'<div class="card"><div class="card-hd">'+ico("heart","c-heart")+'<h3>핵심 수치</h3><span class="cap">내 30일 평소 대비</span><a class="more" href="#health">건강'+ico("chev","ico-sm")+'</a></div><div class="kns">'+r+'</div></div>':"";}
+function sleepMini(){const n=sleepOn(TODAY)||latestSleep();if(!n)return"";const s=SCORE.sleep(n,sleepsBefore(n.date));
+  return '<a class="card mini-sleep" href="#sleep"><div class="card-hd">'+ico("moon","c-blue")+'<h3>'+(n.date===TODAY?"어젯밤 수면":shortDate(n.date)+" 수면")+'</h3>'+(s?lvBadge(s.score):"")+'</div><div class="ms"><b>'+hmHTML(n.asleep)+'</b><span class="cap">'+(s?"수면 점수 "+s.score:"")+' · '+esc(hhmmStr(n.bed))+'→'+esc(hhmmStr(n.wake))+'</span></div>'+stageBar(n).split('<div class="legend4">')[0]+'</a>';}
+function nextPlans(){const items=planItems(TODAY);const now=pad(new Date().getHours())+":"+pad(new Date().getMinutes());const up=items.filter(i=>i.time&&i.time!=="종일"&&i.time>=now).slice(0,2);
+  const w=weatherTile();
+  let h='<div class="card"><div class="card-hd">'+ico("cal","c-blue")+'<h3>다음 일정</h3><a class="more" href="#plan">일정'+ico("chev","ico-sm")+'</a></div>';
+  h+=up.length?'<div class="list">'+up.map(i=>{const[hh,mm]=i.time.split(":").map(Number);const left=hh*60+mm-(new Date().getHours()*60+new Date().getMinutes());
+    return '<div class="li"><div class="time">'+esc(i.time)+'</div><div class="m"><div class="t">'+esc(i.title)+'</div><div class="s">'+(left<60?left+"분 뒤":Math.floor(left/60)+"시간 "+(left%60)+"분 뒤")+'</div></div></div>';}).join("")+'</div>':'<div class="cap">남은 일정이 없어요.</div>';
+  if(w)h+='<div class="wline">'+ico(/비|눈|흐/.test(str(w.value)+str(w.note))?"cloud":"sun","ico-sm")+'<b>'+esc(str(w.value))+'</b><span>'+esc(str(w.note))+'</span></div>';
+  return h+'</div>';}
+function week7(){const pts=[];for(let i=6;i>=0;i--){const d=addDays(TODAY,-i);const c=SCORE.condition(d);pts.push([d,c.score]);}
+  if(pts.filter(p=>p[1]!=null).length<2)return"";
+  return '<div class="card"><div class="card-hd">'+ico("pulse","c-accent")+'<h3>최근 7일 컨디션</h3></div><div class="w7">'+pts.map(([d,s])=>{const l=s!=null?lv5(s):null;
+    return '<div class="wd'+(d===TODAY?" today":"")+'"><span class="b '+(l?l[2]:"none")+'" style="height:'+(s!=null?Math.max(12,s):8)+'%"></span><b>'+(s!=null?s:"—")+'</b><small>'+(d===TODAY?"오늘":WEEK[parseYmd(d).getDay()])+'</small></div>';}).join("")+'</div></div>';}
+function renderHome(){
+  applyLunchDefault();
+  let h=homeHeader()+'<div class="home-grid"><div class="col stack">'+heroCard()+todoCard()+quickCard()+'</div><div class="col stack">'+timelineCard()+keyNums()+sleepMini()+nextPlans()+week7()+alertsCard()+'</div></div>';
+  h+='<div class="disc">건강 해석은 참고용이에요. 증상이 있거나 계속되면 진료 상담을 받아 주세요.</div>';
+  $("v-home").innerHTML=h;
+  bindNoticeRows($("v-home"));
 }
 function alertsCard(){
   const b=morningBrief();const al=b?arr(b.alerts).map(str):[];
@@ -280,13 +408,6 @@ function alertsCard(){
   h+=al.map(a=>'<div class="alert" style="margin:0 0 8px">'+esc(a)+'</div>').join("");
   h+='<div class="list">'+notes.map(noticeRow).join("")+'</div>';
   return h+'</div>';
-}
-function renderHome(){
-  const[g,gi]=greeting();
-  let h='<div class="hdr"><div class="av">'+ico("user")+'</div><div class="hi"><small>안녕하세요, 연서 씨</small><b>'+g+'<span class="c-zap gi">'+ico(gi,"ico-sm")+'</span></b></div><a class="iconbtn" href="#me" aria-label="설정">'+ico("gear")+'</a></div>';
-  h+='<div class="home-grid"><div class="col stack">'+condCard()+sleepCard(true)+'</div><div class="col stack">'+minisRow()+briefCard()+alertsCard()+todayPlanCard()+'</div></div>';
-  $("v-home").innerHTML=h;
-  bindNoticeRows($("v-home"));
 }
 
 /* =====================================================================
@@ -384,67 +505,84 @@ function renderHealth(){
   let h='<div class="page-title">건강</div><div class="page-sub">'+esc(syncState()[2])+'</div><div class="stack">';
   const H=S.health;
   if(!H){$("v-health").innerHTML=h+'<div class="card"><div class="empty"><b>건강 데이터 연결 필요</b>'+esc(syncState()[2])+'</div></div><div class="sec-title">오늘 기록</div>'+logCard()+'</div>';bindLog();return;}
+  h+=signalCard()+stepCard()+heartCard();
   const ref=addDays(TODAY,-1);const pre=addDays(TODAY,-2);
   const M=(k,name,unit,icon,cls,goodUp,digits,note)=>{const v=metric(ref,k),pv=metric(pre,k);if(v==null)return"";
-    return '<div class="metric"><div class="lb"><span class="'+cls+'">'+ico(icon,"ico-sm")+'</span>'+name+'</div><div class="v">'+(digits?(Math.round(v*10)/10):fmtN(v))+'<small>'+unit+'</small></div><div class="n">'+(pv!=null?deltaHTML(v-pv,"",goodUp,digits):"")+(note?" "+note:"")+'</div></div>';};
-  const cat=(title,icon,cls,body,chartId)=>body?'<div class="card"><div class="card-hd">'+ico(icon,cls)+'<h3>'+title+'</h3><span class="cap">어제 · 그 전날 대비</span></div><div class="metrics">'+body+'</div>'+(chartId?'<div class="chartbox sm"><canvas id="'+chartId+'"></canvas></div>':"")+'</div>':"";
-  h+='<div class="sec-title" style="margin-top:4px">측정 지표 <span class="seg" id="hRange"><button data-r="14">14일</button><button data-r="30">30일</button></span></div>';
-  h+=cat("활동","run","c-step",M("걸음","걸음 수","걸음","foot","c-step",true)+M("활동에너지","활동량","kcal","zap","c-zap",true)+M("운동시간","운동 시간","분","run","c-accent",true)+M("거리","이동 거리","km","foot","c-step",true,true)+M("오른층수","오른 층수","층","list","c-blue",true)+M("스탠드시간","서 있던 시간","분","clock","c-blue",true))+stepGrid();
-  h+=cat("심장","heart","c-heart",M("안정심박","안정 시 심박","bpm","heart","c-heart",false)+M("HRV","심박 변이도(HRV)","ms","pulse","c-heart",true,true)+M("걷기심박","걸을 때 심박","bpm","pulse","c-heart"))+rangeCard();
+    return '<div class="metric"><div class="lb"><span class="'+cls+'">'+ico(icon,"ico-sm")+'</span>'+name+'</div><div class="v">'+(digits?(Math.round(v*10)/10):fmtN(v))+'<small>'+unit+'</small></div><div class="n">'+(pv!=null&&Math.round((v-pv)*10)!==0?deltaHTML(v-pv,"",goodUp,digits):'<span class="cap">'+(note||"그 전날과 같음")+'</span>')+'</div></div>';};
+  const cat=(title,icon,cls,body)=>body?'<div class="card"><div class="card-hd">'+ico(icon,cls)+'<h3>'+title+'</h3><span class="cap">어제 · 그 전날 대비</span></div><div class="metrics">'+body+'</div></div>':"";
+  h+=cat("활동","run","c-step",M("활동에너지","활동량","kcal","zap","c-zap",true)+M("운동시간","운동 시간","분","run","c-accent",true)+M("거리","이동 거리","km","foot","c-step",true,true)+M("스탠드시간","서 있던 시간","분","clock","c-blue",true));
   h+=cat("호흡·산소","lungs","c-blue",M("혈중산소","혈중 산소","%","drop","c-blue",true,true)+M("호흡수","수면 중 호흡수","회/분","lungs","c-blue",undefined,true)+M("VO2max","심폐 체력(VO₂max)","","run","c-accent",true,true,"최근 측정"));
-  h+='<div class="card"><div class="card-hd">'+ico("shield","c-accent")+'<h3>측정되지 않는 항목</h3></div><div class="cap" style="line-height:1.7">스트레스: Apple Watch에 직접 측정값이 없어 표시하지 않아요.<br>체중·체성분: 건강 앱에 기록이 없어요. 기록하면 여기에 추세가 생겨요.</div></div>';
-  h+='<div class="sec-title">오늘 기록 <small>물·커피·컨디션·식사</small></div>'+logCard();
+  h+='<div class="sec-title">오늘 기록 <small>물·커피·컨디션·식사·술·영양제</small></div>'+logCard();
   h+=lifeGrid();
-  h+='</div>';
+  h+='<div class="disc">건강 해석은 참고용이에요. 증상이 있거나 계속되면 진료 상담을 받아 주세요.</div></div>';
   $("v-health").innerHTML=h;
-  document.querySelectorAll("#hRange button").forEach(b=>{b.classList.toggle("on",+b.dataset.r===healthRange);b.onclick=()=>{healthRange=+b.dataset.r;renderHealth();};});
   bindLog();
 }
-function healthDays(n){const ids=[];for(let i=n;i>=1;i--)ids.push(addDays(TODAY,-i));return ids;}
-/* 걸음 달력: 칸 색이 진할수록 많이 걸은 날, 목표(8,000보) 넘으면 체크 */
-function stepGrid(){const ids=healthDays(healthRange),G=8000;const v=ids.map(d=>metric(d,"걸음"));const have=v.filter(x=>x!=null);if(!have.length)return"";
-  const mx=Math.max(G*1.5,...have);const hit=have.filter(x=>x>=G).length;
-  return '<div class="card"><div class="card-hd">'+ico("foot","c-step")+'<h3>걸음 달력</h3><span class="cap">최근 '+healthRange+'일</span></div>'+
-  '<div class="sumrow"><div><small>하루 평균</small><b>'+fmtN(avg(have))+'<small>보</small></b></div><div><small>목표 8,000보 달성</small><b>'+hit+'<small> / '+have.length+'일</small></b></div><div><small>가장 많이</small><b>'+fmtN(Math.max(...have))+'<small>보</small></b></div></div>'+
-  '<div class="hgrid">'+ids.map((d,i)=>{const x=v[i];const a=x==null?0:clamp(x/mx,0.08,1);const dt=parseYmd(d);
-    return '<div class="hc'+(x==null?" none":"")+(x!=null&&x>=G?" hit":"")+'" style="--a:'+a.toFixed(2)+'"><span class="d">'+(dt.getMonth()+1)+'/'+dt.getDate()+'</span><b>'+(x==null?"—":x>=1000?(Math.round(x/100)/10)+"k":x)+'</b>'+'</div>';}).join("")+'</div><div class="cap" style="margin-top:10px">색이 진할수록 많이 걸은 날, 초록 테두리는 8,000보를 넘긴 날이에요.</div></div>';}
-/* 평소 범위 막대: 회색 = 최근 30일 범위, 진한 띠 = 평소(중간 50%), 점 = 어제 */
-function rangeCard(){const rows=[["안정심박","안정 시 심박","bpm",false],["HRV","심박 변이도","ms",true],["걷기심박","걸을 때 심박","bpm",null]].map(([k,n,u,up])=>{
-    const ids=healthDays(30);const a=ids.map(d=>metric(d,k)).filter(x=>x!=null).sort((x,y)=>x-y);const y=metric(addDays(TODAY,-1),k);if(a.length<5||y==null)return"";
-    const q=p=>a[Math.min(a.length-1,Math.floor(p*(a.length-1)))];const lo=Math.min(a[0],y),hi=Math.max(a[a.length-1],y),sp=(hi-lo)||1,pos=x=>((x-lo)/sp*100).toFixed(1);
-    const q1=q(.25),q3=q(.75);const st=y<q1?"low":y>q3?"high":"mid";
-    const word=st==="mid"?"평소와 비슷해요":(st==="high"?"평소보다 높아요":"평소보다 낮아요");const good=st==="mid"||up===null?"":((st==="high")===up?" up":" down");
-    return '<div class="rg"><div class="t"><span>'+n+'</span><b>'+Math.round(y)+'<small> '+u+'</small></b></div><div class="rbar"><i class="band" style="left:'+pos(q1)+'%;width:'+(pos(q3)-pos(q1)).toFixed(1)+'%"></i><i class="dot'+good+'" style="left:'+pos(y)+'%"></i></div>'+
-      '<div class="cap"><span class="rw'+good+'">'+word+'</span> · 평소 '+Math.round(q1)+'–'+Math.round(q3)+' '+u+'</div></div>';}).join("");
-  return rows?'<div class="card"><div class="card-hd">'+ico("pulse","c-heart")+'<h3>평소 범위와 비교</h3><span class="cap">어제 · 최근 30일 기준</span></div><div class="ranges">'+rows+'</div><div class="cap" style="margin-top:12px">진한 띠가 평소 범위(최근 30일의 가운데 50%), 점이 어제 값이에요.</div></div>':"";}
-/* 물·커피 7일 표 */
-function lifeGrid(){const ids=healthDays(6).concat([TODAY]);
-  const row=(lab,k,col,goal)=>'<div class="lr"><span class="ln">'+lab+'</span>'+ids.map(d=>{const x=dayData(d);const v=x?x[k]:0;return '<span class="lc'+(goal&&v>=goal?" ok":"")+'" style="--c:'+col+';--a:'+(v?clamp(v/(goal||4),0.2,1).toFixed(2):0)+'">'+(v||"·")+'</span>';}).join("")+'</div>';
-  return '<div class="card"><div class="card-hd">'+ico("drop","c-blue")+'<h3>최근 7일 생활 기록</h3><span class="cap">앱에서 누른 기록</span></div><div class="life">'+
-    '<div class="lr hd"><span class="ln"></span>'+ids.map(d=>{const t=parseYmd(d);return '<span class="lc">'+(d===TODAY?"오늘":WEEK[t.getDay()])+'</span>';}).join("")+'</div>'+
-    row("💧 물","water","var(--blue)",8)+row("☕ 커피","coffee","var(--zap)",0)+'</div><div class="cap" style="margin-top:10px">물은 8잔을 채운 날에 테두리가 생겨요.</div></div>';}
+/* 맨 위: 오늘 몸 상태 한 줄 + 항목별 신호등 */
+function signalCard(){const L=bodyLine();const n=sleepOn(TODAY)||latestSleep();const s=n?SCORE.sleep(n,sleepsBefore(n.date)):null;
+  const ref=addDays(TODAY,-1);const r=vsBase("안정심박",ref),hv=vsBase("HRV",ref);const st=metric(ref,"걸음");
+  const heartBad=(r&&/높음/.test(r.st))||(hv&&/낮음/.test(hv.st));
+  const sig=(name,lv,txt)=>'<div class="sg '+lv+'"><span class="sd2">'+ico(lv==="g"?"check":lv==="y"?"bell":lv==="r"?"x":"list","ico-xs")+'</span><b>'+name+'</b><small>'+txt+'</small></div>';
+  return '<div class="card"><div class="one sm">'+esc(L.head)+'</div><div class="tip">'+esc(L.tip)+'</div><div class="sigs">'+
+    sig("수면",!s?"n":s.score>=70?"g":s.score>=55?"y":"r",s?s.score+"점":"—")+
+    sig("심장",!r&&!hv?"n":heartBad?"y":"g",!r&&!hv?"—":heartBad?"살펴보기":"평소 범위")+
+    sig("활동",st==null?"n":st>=8000?"g":st>=5000?"y":"r",st==null?"—":fmtN(st)+"보")+
+    sig("수분",today.water>=8?"g":today.water>=4?"y":"r",today.water+"/8잔")+
+    sig("영양제",!mySupps().length?"n":today.supplement.length>=mySupps().length?"g":today.supplement.length?"y":"r",today.supplement.length+"/"+mySupps().length)+'</div></div>';}
+/* 걸음: 최근 7일 막대 + 오늘 큰 숫자 */
+function stepCard(){const G=8000;const ids=[];for(let i=6;i>=0;i--)ids.push(addDays(TODAY,-i));const v=ids.map(d=>metric(d,"걸음"));
+  const past=v.slice(0,6).filter(x=>x!=null);const a7=avg(past);const t=v[6];if(!past.length&&t==null)return"";
+  const mx=Math.max(G*1.15,...v.filter(x=>x!=null));
+  let h='<div class="card"><div class="card-hd">'+ico("foot","c-step")+'<h3>걸음</h3><span class="cap">목표 '+fmtN(G)+'보</span></div>';
+  h+='<div class="stbig"><b>'+(t==null?"—":fmtN(t))+'<i>보</i></b><span>오늘 · 목표의 '+(t==null?"—":Math.round(t/G*100)+"%")+(a7!=null&&t!=null?' · 최근 평균 '+fmtN(a7)+'보':"")+'</span></div>';
+  const gp=(G/mx*100).toFixed(1);
+  h+='<div class="sbars">'+ids.map((d,i)=>{const x=v[i];const hit=x!=null&&x>=G;const hp=(x==null?2:Math.max(3,x/mx*100)).toFixed(1);
+    return '<div class="sb'+(d===TODAY?" today":"")+(hit?" hit":"")+'"><div class="area"><i class="goal" style="bottom:'+gp+'%"></i><span class="bb" style="height:'+hp+'%"><span class="vv">'+(x==null?"":x>=1000?(Math.round(x/100)/10)+"k":x)+'</span></span></div><small>'+(d===TODAY?"오늘":WEEK[parseYmd(d).getDay()])+(hit?" "+ico("check","ico-xs"):"")+'</small></div>';}).join("")+'</div>';
+  const hit=past.filter(x=>x>=G).length;
+  h+='<div class="cap" style="margin-top:10px">지난 6일 중 '+hit+'일 목표 달성'+(t!=null&&t<G&&new Date().getHours()<21?' · 오늘 남은 '+fmtN(G-t)+'보는 약 '+Math.ceil((G-t)/110)+'분 걷기예요':"")+'</div>';
+  return h+'</div>';}
+/* 심장: 상태 라벨 + 참고 문장 + 30일 범위 막대 */
+function heartCard(){const ref=addDays(TODAY,-1);
+  const msg={
+    "안정심박":(v)=>{const y=Math.round(v.y),m=Math.round(v.b.med);const gen=y<60?"일반 성인 범위(60~100)보다 낮지만, 운동을 꾸준히 하는 사람에게는 흔해요.":y>100?"일반 성인 범위(60~100)보다 높아요.":"일반 성인 범위(60~100) 안이에요.";
+      return gen+" 내 30일 평소("+m+")와 비교하면 "+(v.st==="평소 범위"?"비슷해서 안정적이에요.":/높음/.test(v.st)?Math.abs(y-m)+"bpm 높아요. 피로·수면 부족·음주·스트레스가 있으면 이렇게 올라가요.":Math.abs(y-m)+"bpm 낮아요. 잘 쉬었을 때 이렇게 내려가요.");},
+    "HRV":(v)=>"HRV는 사람마다 차이가 커서 내 평소와만 비교해요. 내 평소("+Math.round(v.b.q1)+"~"+Math.round(v.b.q3)+"ms)보다 "+(v.st==="평소 범위"?"벗어나지 않아 회복 상태가 무난해요.":/낮음/.test(v.st)?"낮아요. 몸이 아직 회복 중이라는 신호일 수 있어요.":"높아요. 회복이 잘된 편이에요."),
+    "걷기심박":(v)=>"걸을 때 심박은 걷는 속도·경사에 따라 달라져요. 내 평소("+Math.round(v.b.q1)+"~"+Math.round(v.b.q3)+"bpm)"+(v.st==="평소 범위"?" 안이에요.":/높음/.test(v.st)?"보다 높아요. 빨리 걸었거나 피곤한 날일 수 있어요.":"보다 낮아요.")};
+  const rows=[["안정심박","안정 시 심박","bpm",false,"heart"],["HRV","심박 변이도 (HRV)","ms",true,"pulse"],["걷기심박","걸을 때 심박","bpm",null,"foot"]].map(([k,n,u,up,ic])=>{
+    const v=vsBase(k,ref);const y=metric(ref,k);if(y==null)return"";
+    if(!v)return '<div class="hr"><div class="ht"><span class="c-heart">'+ico(ic,"ico-sm")+'</span><b>'+n+'</b><span class="hv">'+Math.round(y)+'<i>'+u+'</i></span></div><div class="cap">평소 범위를 계산하려면 기록이 5일 이상 필요해요.</div></div>';
+    const lo=Math.min(v.b.min,y),hi=Math.max(v.b.max,y),sp=(hi-lo)||1,pos=x=>((x-lo)/sp*100).toFixed(1);
+    const tone=v.st==="평소 범위"?"ok":up===null?"mid":((/높음/.test(v.st))===up?"ok":/약간/.test(v.st)?"mid":"bad");
+    return '<div class="hr"><div class="ht"><span class="c-heart">'+ico(ic,"ico-sm")+'</span><b>'+n+'</b><span class="hst '+tone+'">'+ico(tone==="ok"?"check":tone==="bad"?"bell":"list","ico-xs")+v.st+'</span><span class="hv">'+Math.round(y)+'<i>'+u+'</i></span></div>'+
+      '<div class="rbar"><i class="band" style="left:'+pos(v.b.q1)+'%;width:'+(pos(v.b.q3)-pos(v.b.q1))+'%"></i><i class="dot '+tone+'" style="left:'+pos(y)+'%"></i></div><div class="rlab"><span>'+Math.round(lo)+'</span><span>평소 '+Math.round(v.b.q1)+'–'+Math.round(v.b.q3)+'</span><span>'+Math.round(hi)+'</span></div>'+
+      '<div class="hmsg">'+esc(msg[k](v))+'</div></div>';}).join("");
+  if(!rows)return"";
+  // 회복 부족 신호: 안정심박 3일 연속 평소보다 높고 HRV도 낮음
+  let warn="";const up3=[1,2,3].every(i=>{const x=vsBase("안정심박",addDays(TODAY,-i));return x&&/높음/.test(x.st);});const hl=vsBase("HRV",ref);
+  if(up3&&hl&&/낮음/.test(hl.st))warn='<div class="notice">'+ico("bell","ico-sm")+'<div><b>회복 부족 신호</b>안정심박이 3일 연속 평소보다 높고 HRV도 낮아요. 오늘은 강한 운동을 쉬고 일찍 자는 걸 권해요. 어지러움·가슴 두근거림이 있거나 계속되면 진료 상담을 받아 주세요.</div></div>';
+  return '<div class="card"><div class="card-hd">'+ico("heart","c-heart")+'<h3>심장</h3><span class="cap">어제 · 내 30일 기준</span></div>'+warn+'<div class="hrs">'+rows+'</div><div class="cap" style="margin-top:12px">진한 띠는 내 최근 30일 중 가운데 50%, 점은 어제 값이에요. 진단이 아닌 참고용이에요.</div></div>';}
+/* 물·커피 7일 막대 */
+function lifeGrid(){const ids=[];for(let i=6;i>=0;i--)ids.push(addDays(TODAY,-i));
+  const col=(k,c,max)=>ids.map(d=>{const x=dayData(d);const v=x?x[k]:0;return '<div class="lg"><div class="area"><span class="bb" style="height:'+(v?Math.max(8,Math.min(100,v/max*100)):3)+'%;background:'+c+'"><span class="vv">'+(v||"")+'</span></span></div><small>'+(d===TODAY?"오늘":WEEK[parseYmd(d).getDay()])+'</small></div>';}).join("");
+  return '<div class="card"><div class="card-hd">'+ico("drop","c-blue")+'<h3>최근 7일 물·커피</h3></div><div class="lbl" style="margin-left:0">💧 물 <small>8잔 목표</small></div><div class="lgs">'+col("water","var(--blue)",8)+'</div><div class="lbl" style="margin-left:0">☕ 커피</div><div class="lgs short">'+col("coffee","var(--zap)",4)+'</div></div>';}
 function logCard(){
   const cups=Array.from({length:Math.max(8,today.water)},(_,i)=>i<today.water);
+  const meal=(f,lab)=>{const v=today[f];const opts=mealOpts(f).concat(["직접 입력"]);const custom=v&&!opts.includes(v);return '<div class="mrow"><span class="ml">'+lab+'</span>'+chips("meal-"+f,custom?[v].concat(opts):opts,x=>x===v,"sm2")+'</div>';};
   return '<div class="card" id="logCard"><div class="card-hd">'+ico("plus","c-accent")+'<h3>오늘 기록</h3><span class="cap">누르면 바로 저장돼요</span></div>'+
   '<div class="counter"><div class="meta"><div class="nm">💧 물</div><div class="big">'+today.water+'<small>/ 8잔</small></div></div><button class="pm" data-act="water-" aria-label="물 빼기">−</button><button class="pm add" data-act="water+" aria-label="물 더하기">＋</button></div>'+
   '<div class="stagebar" style="height:8px;margin:12px 0 16px">'+cups.map(on=>'<i style="flex:1;background:'+(on?"var(--blue)":"transparent")+'"></i>').join("")+'</div>'+
   '<div class="counter"><div class="meta"><div class="nm">☕ 커피</div><div class="big">'+today.coffee+'<small>잔</small></div></div><button class="pm" data-act="coffee-" aria-label="커피 빼기">−</button><button class="pm add" data-act="coffee+" aria-label="커피 더하기">＋</button></div>'+
-  '<div class="lbl" style="margin-left:0">컨디션 <small>여러 개 골라도 돼요</small></div><div class="opts cond5" id="oCond">'+COND.map(([n,e,l])=>'<button data-v="'+n+'" class="'+(today.condition.includes(n)?"on":"")+'">'+e+'<small>'+l+'</small></button>').join("")+'</div>'+
-  '<div class="lbl" style="margin-left:0">기분 <small>여러 개 골라도 돼요</small></div><div class="opts" id="oMood">'+MOOD.map(m=>'<button data-v="'+m+'" class="'+(today.mood.includes(m)?"on":"")+'">'+m+'</button>').join("")+'</div>'+
-  '<div class="lbl" style="margin-left:0">운동</div><div class="opts" id="oWork">'+WORK.map(w=>'<button data-v="'+w+'" class="'+(today.workout.includes(w)?"on":"")+'">'+w+'</button>').join("")+'</div>'+
-  '<div class="lbl" style="margin-left:0">그 밖에</div><div><div class="trow"><span>💊 영양제</span><button class="toggle '+(today.supplement?"on":"")+'" id="tgSupp" aria-label="영양제"></button></div><div class="trow"><span>🍺 술</span><button class="toggle '+(today.alcohol?"on":"")+'" id="tgAlc" aria-label="술"></button></div></div>'+
-  '<div class="lbl" style="margin-left:0">식사 · 메모</div><div class="fields"><input class="field" id="fBreakfast" placeholder="🍳 아침" maxlength="200"><input class="field" id="fLunch" placeholder="🍱 점심" maxlength="200"><input class="field" id="fDinner" placeholder="🍲 저녁" maxlength="200"><textarea class="field" id="fMemo" rows="3" placeholder="📝 메모" maxlength="1000"></textarea></div>'+
+  condPicker()+
+  '<div class="lbl" style="margin-left:0">운동</div>'+workPicker()+
+  '<div class="lbl" style="margin-left:0">💊 영양제 <button class="lnk" data-act="picker" data-p="supp">목록 편집</button></div>'+(mySupps().length?chips("supp",mySupps(),v=>today.supplement.includes(v)):'<div class="cap">목록 편집에서 내 영양제를 골라 주세요.</div>')+
+  '<div class="lbl" style="margin-left:0">🍺 술 <button class="lnk" data-act="picker" data-p="alc">종류·잔 수</button></div>'+chips("alc",ALC.map((l,i)=>[i,l]),v=>today.alcohol.lv===+v||(+v===0&&!today.alcohol.lv),"alc5")+(today.alcohol.type?'<div class="cap" style="margin-top:6px">'+esc(alcText(today.alcohol))+'</div>':"")+
+  '<div class="lbl" style="margin-left:0">식사 <small>평일 점심은 '+esc(lunchPlace())+'이 기본이에요</small></div>'+meal("breakfast","아침")+meal("lunch","점심")+meal("dinner","저녁")+
+  '<div class="lbl" style="margin-left:0">메모</div><textarea class="field" id="fMemo" rows="3" placeholder="📝 메모" maxlength="1000"></textarea>'+
   '<div class="saved" id="savedNote">'+esc(savedMsg)+'</div></div>';
 }
-const FIELDS=[["fBreakfast","breakfast"],["fLunch","lunch"],["fDinner","dinner"],["fMemo","memo"]];
+const FIELDS=[["fMemo","memo"]];
 function bindLog(){
   FIELDS.forEach(([id,k])=>{const f=$(id);if(!f)return;f.value=today[k];f.addEventListener("input",e=>{today[k]=e.target.value;changed(false);});});
-  const pick=(id,fn)=>{const b=$(id);if(b)b.querySelectorAll("button").forEach(x=>x.onclick=()=>fn(x.dataset.v));};
-  pick("oCond",v=>{v=+v;today.condition=today.condition.includes(v)?today.condition.filter(x=>x!==v):today.condition.concat([v]).sort();changed(true);});
-  pick("oMood",v=>{today.mood=today.mood.includes(v)?today.mood.filter(x=>x!==v):today.mood.concat([v]);changed(true);});
-  pick("oWork",v=>{today.workout=today.workout.includes(v)?today.workout.filter(x=>x!==v):today.workout.concat([v]);changed(true);});
-  if($("tgSupp"))$("tgSupp").onclick=()=>{today.supplement=!today.supplement;changed(true);};
-  if($("tgAlc"))$("tgAlc").onclick=()=>{today.alcohol=!today.alcohol;changed(true);};
 }
 document.addEventListener("click",e=>{const a=e.target.closest("[data-act]");if(!a)return;const act=a.dataset.act;
   if(act==="water+")today.water=Math.min(today.water+1,20);if(act==="water-")today.water=Math.max(today.water-1,0);
@@ -529,6 +667,9 @@ function renderMe(){
   let h='<div class="page-title">내 정보</div><div class="page-sub">설정 · 연동 · 데이터</div><div class="stack">';
   h+='<div class="card"><div class="setrow"><div class="hdr" style="padding:0"><div class="av">'+ico("user")+'</div></div><div class="m"><b>연서 씨</b><small>브리핑 앱 '+APP_VER+'</small></div></div></div>';
   h+='<div class="card"><div class="card-hd">'+ico("sun","c-zap")+'<h3>화면 테마</h3></div><div class="theme3">'+[["system","시스템 설정","monitor"],["light","라이트","sun"],["dark","다크","moon"]].map(([k,l,i])=>'<button data-th="'+k+'" class="'+(p===k?"on":"")+'">'+ico(i)+l+'</button>').join("")+'</div><div class="cap" style="margin-top:10px">시스템 설정을 고르면 폰이 다크 모드로 바뀔 때 앱도 함께 바뀌어요.</div></div>';
+  h+='<div class="card"><div class="card-hd">'+ico("check","c-accent")+'<h3>기록 기본값</h3></div><div class="trow"><span>평일 점심 자동 기록</span><button class="toggle '+(lunchDefOn()?"on":"")+'" id="tgLunch" aria-label="평일 점심 자동 기록"></button></div>'+
+    '<div class="lbl" style="margin-left:0">점심 장소</div><div class="addrow"><input class="field" id="lunchIn" maxlength="30" value="'+esc(lunchPlace())+'"><button class="btn-sub" id="lunchSave">저장</button></div>'+
+    '<div class="cap" style="margin-top:8px">평일(공휴일 제외) 오전 11시가 지나면 점심 칸에 자동으로 들어가요. 다른 걸 먹었으면 한 번 눌러 바꾸면 돼요.</div></div>';
   const row=(icon,name,state,cls,note)=>'<div class="setrow"><span class="c-blue">'+ico(icon)+'</span><div class="m"><b>'+name+'</b><small>'+esc(note)+'</small></div><span class="badge '+cls+'">'+state+'</span></div>';
   const H=S.health;
   h+='<div class="card"><div class="card-hd">'+ico("link","c-accent")+'<h3>건강 데이터 연동</h3></div>'+
@@ -546,6 +687,8 @@ function renderMe(){
   h+='</div>';
   $("v-me").innerHTML=h;$("keyIn").value=CFG.key;
   document.querySelectorAll("[data-th]").forEach(b=>b.onclick=()=>setTheme(b.dataset.th));
+  $("tgLunch").onclick=()=>{ls("ys_lunchdef",lunchDefOn()?"off":"on");renderMe();};
+  $("lunchSave").onclick=()=>{const v=$("lunchIn").value.trim();if(v){ls("ys_lunchplace",v);toast("점심 장소를 바꿨어요");}};
   $("keySave").onclick=()=>{const v=$("keyIn").value.trim();if(!v){$("keyMsg").textContent="비밀번호를 넣어 주세요";return;}CFG.key=v;ls("ys_key",v);load(true);if(dirty)flush();toast("연결했어요");};
 }
 
@@ -576,19 +719,6 @@ function drawSleepCharts(R){
     options:baseOpts({plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:8,boxHeight:8,usePointStyle:true}},tooltip:{callbacks:{label:c=>c.dataset.label+" "+clockStr(c.raw*60)}}},
       scales:{x:{grid:{display:false},border:{display:false},ticks:{maxRotation:0,autoSkipPadding:8}},y:{reverse:true,beginAtZero:false,grid:{color:css("--line")},border:{display:false},ticks:{stepSize:3,callback:v=>pad(Math.round(v)%24)+"시"}}}})});
 }
-function drawHealthCharts(){
-  if(!window.Chart||!S.health)return;
-  const ids=[];for(let i=healthRange;i>=1;i--)ids.push(addDays(TODAY,-i));const L=ids.map(lbl);
-  mk("chSteps",{type:"bar",plugins:[valLabels],data:{labels:L,datasets:[{label:"걸음",data:ids.map(d=>metric(d,"걸음")),backgroundColor:css("--step"),borderRadius:5}]},
-    options:baseOpts({layout:{padding:{top:16}},plugins:{legend:{display:false},vl:healthRange<=14?{fmt:"k"}:null}})});
-  mk("chHeart",{type:"line",data:{labels:L,datasets:[{label:"안정심박",data:ids.map(d=>metric(d,"안정심박")),borderColor:css("--heart"),backgroundColor:css("--heart"),tension:.35,pointRadius:2.5,spanGaps:true,yAxisID:"y"},
-    {label:"HRV",data:ids.map(d=>metric(d,"HRV")),borderColor:css("--blue"),backgroundColor:css("--blue"),tension:.35,pointRadius:2.5,spanGaps:true,yAxisID:"y1"}]},
-    options:baseOpts({plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:8,boxHeight:8,usePointStyle:true}}},scales:{x:{grid:{display:false},border:{display:false},ticks:{maxRotation:0,autoSkipPadding:8}},
-      y:{beginAtZero:false,grid:{color:css("--line")},border:{display:false},title:{display:true,text:"bpm"}},y1:{position:"right",beginAtZero:false,grid:{display:false},border:{display:false},title:{display:true,text:"ms"}}}})});
-  const dd=ids.concat([TODAY]);
-  mk("chDrink",{type:"bar",plugins:[valLabels],data:{labels:dd.map(lbl),datasets:[{label:"물",data:dd.map(d=>dayData(d)?dayData(d).water:0),backgroundColor:css("--blue"),borderRadius:4},{label:"커피",data:dd.map(d=>dayData(d)?dayData(d).coffee:0),backgroundColor:css("--zap"),borderRadius:4}]},
-    options:baseOpts({layout:{padding:{top:14}},plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:8,boxHeight:8,usePointStyle:true}},vl:null},scales:{x:{grid:{display:false},border:{display:false},ticks:{maxRotation:0,autoSkipPadding:8}},y:{beginAtZero:true,ticks:{stepSize:2},grid:{color:css("--line")},border:{display:false}}}})});
-}
 function dayData(id){return id===TODAY?today:(S.days[id]?normDay(id,S.days[id]):null);}
 function refreshCharts(){const t=curTab();if(t==="sleep")renderTab(t);}
 window.__chartReady=()=>refreshCharts();
@@ -613,9 +743,9 @@ function changed(rerender){today.reflected=false;
 async function flush(){
   if(!CFG.key){setSaved("연결이 필요해요");location.hash="#me";return;}
   if(saving){clearTimeout(saveTimer);saveTimer=setTimeout(flush,500);return;}
-  saving=true;dirty=false;const body=Object.assign({},today,{workout:today.workout.slice(),condition:today.condition.length?today.condition.join(","):null,mood:today.mood.join(",")});
+  saving=true;dirty=false;const body=Object.assign({},today,{workout:today.workout.slice(),condition:today.condition.length?today.condition.join(","):null,mood:today.mood.join(","),supplement:today.supplement.length?today.supplement.join(","):"FALSE",alcohol:serAlc(today.alcohol)});
   try{const res=await apiPost({action:"saveDay",day:body});
-    if(res&&res.ok){setSaved("✓ 저장됨 · "+hhmm(new Date()));S.days[TODAY]=body;}
+    if(res&&res.ok){setSaved("✓ 저장됨 · "+hhmm(new Date()));S.days[TODAY]=body;const n=$("savedNote");if(n){n.classList.remove("pop");void n.offsetWidth;n.classList.add("pop");}}
     else{setSaved(res&&res.error==="key"?"비밀번호가 맞지 않아요":"저장하지 못했어요");dirty=true;}
   }catch(err){setSaved("연결이 안 돼요 · 곧 다시 저장할게요");dirty=true;setTimeout(()=>{if(dirty)flush();},5000);}
   saving=false;
