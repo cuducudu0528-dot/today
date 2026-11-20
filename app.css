@@ -271,3 +271,29 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 #logCard{scroll-margin-top:16px}
 .wx b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all}
 .wx small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* ---------- 수면 탭 (3단계) ---------- */
+.notice{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:var(--r-md,14px);background:var(--warn-bg);color:var(--ink);font-size:var(--fs-sm);line-height:1.5}
+.notice .ico{color:var(--warn);margin-top:2px;flex:none}
+.notice b{display:block;color:var(--warn);font-weight:750}
+.dnav{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-4)}
+.dnav b{font-size:var(--fs-h3);font-weight:750;letter-spacing:-.03em}
+.dnav button{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--surface);color:var(--ink)}
+.dnav button:disabled{opacity:.35}
+.ico.flip{transform:scaleX(-1)}
+.sleep-hero{display:flex;align-items:center;gap:var(--sp-5)}
+.sleep-hero .rwrap{position:relative;width:96px;height:96px;flex:none}
+.sleep-hero .rwrap .ring{width:96px;height:96px}
+.sleep-hero .sc-in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.sleep-hero .sc-in b{font-size:30px;font-weight:800;letter-spacing:-.04em;line-height:1}
+.sleep-hero .sc-in small{font-size:10px;color:var(--sub);font-weight:600;margin-top:3px}
+.sleep-hero .r{display:flex;flex-direction:column;gap:4px;min-width:0}
+.sleep-hero .r .big{font-size:28px;font-weight:800;letter-spacing:-.04em}
+.sleep-hero .r .badge{align-self:flex-start;margin-top:2px}
+.pct3{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-2);margin-top:var(--sp-4);padding-top:var(--sp-3);border-top:1px solid var(--line)}
+.pct3 div small{display:block;font-size:var(--fs-cap);color:var(--sub);font-weight:600}
+.pct3 div b{font-size:var(--fs-h3);font-weight:750;margin-right:4px}
+.pbars{display:flex;flex-direction:column;gap:12px}
+.pb .t{display:flex;justify-content:space-between;font-size:var(--fs-sm);margin-bottom:6px}
+.pb .t b{font-weight:750}.pb .t small{color:var(--sub);font-weight:500}
+.pb .bar{height:8px;border-radius:4px;background:var(--surface);overflow:hidden}
+.pb .bar i{display:block;height:100%;background:var(--blue);border-radius:4px}
