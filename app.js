@@ -3,7 +3,7 @@
    점수 계산식: docs/scoring.md 와 아래 SCORE 모듈이 같아야 한다. */
 (function(){
 "use strict";
-const APP_VER="2026-11-19-6";
+const APP_VER="2026-11-20-1";
 const DEF_URL="https://script.google.com/macros/s/AKfycbxgoPMdod-SPlKH4gcsmEH5bg1GVYMmRDgropKc4qbqLEBAKAQlR95xIzrz75Zfh2o9dg/exec";
 const WEEK=["일","월","화","수","목","금","토"];
 const COND=[[1,"😫","지침"],[2,"😮‍💨","피곤"],[3,"🙂","보통"],[4,"😊","좋음"],[5,"🤩","최고"]];
@@ -292,24 +292,37 @@ function renderHome(){
 /* =====================================================================
    수면
    ===================================================================== */
+let sleepView=null; // 수면 탭에서 보고 있는 날짜(null = 가장 최근)
+function sleepDates(){const H=S.health;return H?arr(H.sleep).map(x=>x.date).sort():[];}
 function renderSleep(){
   const H=S.health;let h='<div class="page-title">수면</div><div class="page-sub">Apple Watch 수면 기록 · 점수는 앱이 계산해요</div>';
   if(!H||!arr(H.sleep).length){$("v-sleep").innerHTML=h+'<div class="card"><div class="empty"><b>수면 데이터가 없어요</b>'+esc(syncState()[2])+'</div></div>';return;}
-  let n=sleepOn(TODAY)||latestSleep();const s=SCORE.sleep(n,sleepsBefore(n.date));
+  const D=sleepDates();const latest=D[D.length-1];
+  if(!sleepView||!D.includes(sleepView))sleepView=latest;
+  const n=sleepOn(sleepView);const s=SCORE.sleep(n,sleepsBefore(n.date));const i=D.indexOf(sleepView);
   h+='<div class="stack">';
-  // 점수
-  h+='<div class="card"><div class="card-hd"><h3>'+(n.date===TODAY?"어젯밤 수면":shortDate(n.date)+" 아침 기준")+'</h3>'+(s?'<span class="badge '+SCORE.label(s.score)[1]+'">'+SCORE.label(s.score)[0]+'</span>':"")+'</div>'+
-     '<div class="sleep-top"><div class="l"><div class="cap">수면 점수</div><div class="big" style="font-size:44px">'+(s?s.score:"—")+'<small style="font-size:16px;color:var(--sub)"> /100</small></div></div><div class="vdiv"></div><div class="l"><div class="cap">총 수면</div><div class="big">'+hmHTML(n.asleep)+'</div></div></div>'+stageBar(n)+'</div>';
+  // 오늘 기록이 아직 없을 때
+  if(latest!==TODAY&&sleepView===latest)h+='<div class="notice">'+ico("clock","ico-sm")+'<div><b>오늘 수면이 아직 안 들어왔어요</b>'+esc(shortDate(addDays(latest,-1)))+' 밤 기록을 보여 줘요. 폰 잠금을 풀고 Health Auto Export를 열면 보내져요.</div></div>';
+  // 날짜 이동 + 점수
+  const prev=sleepsBefore(n.date).slice(0,7);const pa=avg(prev.map(x=>x.asleep));
+  h+='<div class="card"><div class="dnav"><button id="sPrev" aria-label="이전 밤"'+(i<=0?" disabled":"")+'>'+ico("chev","ico-sm flip")+'</button><b>'+(n.date===TODAY?"어젯밤":shortDate(addDays(n.date,-1))+" 밤")+'</b><button id="sNext" aria-label="다음 밤"'+(i>=D.length-1?" disabled":"")+'>'+ico("chev","ico-sm")+'</button></div>'+
+     '<div class="sleep-hero"><div class="rwrap">'+ring(s?s.score/100:0,"var(--blue)")+'<div class="sc-in"><b>'+(s?s.score:"—")+'</b><small>수면 점수</small></div></div>'+
+     '<div class="r"><div class="big">'+hmHTML(n.asleep)+'</div>'+(pa!=null&&prev.length>=3?'<div class="cap">최근 평균 '+hm(pa)+' '+deltaHTML((n.asleep-pa),"분",true)+'</div>':"")+
+     '<div class="cap">'+esc(hhmmStr(n.bed))+' 잠듦 → '+esc(hhmmStr(n.wake))+' 기상</div>'+(s?'<span class="badge '+SCORE.label(s.score)[1]+'">'+SCORE.label(s.score)[0]+'</span>':"")+'</div></div>'+
+     stageBar(n)+stagePct(n)+'</div>';
+  // 수면 부채·오늘 밤 목표
+  const R7=lastSleeps(7);const debt=R7.reduce((a,x)=>a+Math.max(0,420-(x.asleep||0)),0);const tb=targetBed(debt);
+  h+='<div class="card"><div class="card-hd">'+ico("moon","c-blue")+'<h3>오늘 밤 목표</h3></div><div class="kv">'+
+     '<div><small>목표 취침</small><b>'+tb.bed+'</b></div><div><small>내일 예상 기상</small><b>'+tb.wake+'</b></div>'+
+     '<div><small>최근 7일 수면 부채</small><b>'+(R7.length?hm(debt):"—")+'</b></div><div><small>7시간 넘게 잔 날</small><b>'+R7.filter(x=>x.asleep>=420).length+' / '+R7.length+'일</b></div></div>'+
+     '<div class="cap" style="margin-top:12px">'+esc(tb.why)+'</div></div>';
   // 시간·효율
   const eff=n.inBed?n.asleep/n.inBed:null;
   h+='<div class="card"><div class="card-hd">'+ico("clock","c-blue")+'<h3>시간과 효율</h3></div><div class="kv">'+
-    '<div><small>잠든 시각</small><b>'+esc(hhmmStr(n.bed))+'</b></div><div><small>일어난 시각</small><b>'+esc(hhmmStr(n.wake))+'</b></div>'+
     '<div><small>침대에 있던 시간</small><b>'+hm(n.inBed)+'</b></div><div><small>실제로 잔 시간</small><b>'+hm(n.asleep)+'</b></div>'+
-    '<div><small>수면 효율</small><b>'+(eff?Math.round(eff*100)+"%":"—")+'</b></div><div><small>깬 횟수</small><b>'+(n.awakeCount!=null?n.awakeCount+"번 · "+hm(n.awakeMin):"—")+'</b></div></div>';
-  if(n.inBed)h+='<div class="cap" style="margin-top:12px">누워 있던 시간과 실제 잔 시간 차이: '+hm(n.inBed-n.asleep)+'</div>';
-  h+='</div>';
+    '<div><small>수면 효율</small><b>'+(eff?Math.round(eff*100)+"%":"—")+'</b></div><div><small>'+(n.awakeCount!=null?"깬 횟수":"중간에 깬 시간")+'</small><b>'+(n.awakeCount!=null?n.awakeCount+"번 · "+hm(n.awakeMin):hm(n.awakeMin))+'</b></div></div></div>';
   // 점수 구성
-  if(s)h+='<div class="card"><div class="card-hd">'+ico("list","c-accent")+'<h3>점수 구성</h3></div><div class="list">'+s.parts.map(p=>'<div class="li"><div class="m"><div class="t">'+p.k+'</div></div><div class="r">'+Math.round(p.v*p.w)+' / '+p.w+'</div></div>').join("")+'</div><div class="cap" style="margin-top:10px">없는 항목은 빼고 나머지로 100점을 다시 나눠요.</div></div>';
+  if(s)h+='<div class="card"><div class="card-hd">'+ico("list","c-accent")+'<h3>점수 구성</h3></div><div class="pbars">'+s.parts.map(p=>'<div class="pb"><div class="t"><span>'+p.k+'</span><b>'+Math.round(p.v*p.w)+'<small> / '+p.w+'</small></b></div><div class="bar"><i style="width:'+Math.round(clamp(p.v,0,1)*100)+'%"></i></div></div>').join("")+'</div><div class="cap" style="margin-top:10px">없는 항목은 빼고 나머지로 100점을 다시 나눠요.</div></div>';
   // 추세
   h+='<div class="sec-title">추세 <span class="seg" id="sRange"><button data-r="7">7일</button><button data-r="30">30일</button></span></div>';
   h+='<div class="card"><div class="card-hd"><h3>단계별 수면 시간</h3></div><div class="chartbox"><canvas id="chSleep"></canvas></div></div>';
@@ -327,8 +340,27 @@ function renderSleep(){
   h+='</div>';
   $("v-sleep").innerHTML=h;
   document.querySelectorAll("#sRange button").forEach(b=>{b.classList.toggle("on",+b.dataset.r===sleepRange);b.onclick=()=>{sleepRange=+b.dataset.r;renderSleep();};});
+  const go=d=>{const j=D.indexOf(sleepView)+d;if(j>=0&&j<D.length){sleepView=D[j];const y=window.scrollY;renderSleep();window.scrollTo(0,y);}};
+  $("sPrev").onclick=()=>go(-1);$("sNext").onclick=()=>go(1);
   drawSleepCharts(R);
 }
+/* 단계 비율: 개인 30일 평균과 비교 */
+function stagePct(n){const tot=(n.deep||0)+(n.core||0)+(n.rem||0);if(!tot||n.deep==null||n.rem==null)return"";
+  const past=sleepsBefore(n.date).slice(0,30).filter(x=>x.deep!=null&&x.rem!=null&&x.asleep);
+  const pr=k=>{const a=avg(past.map(x=>x[k]/((x.deep||0)+(x.core||0)+(x.rem||0)||x.asleep)));return a==null?null:a*100;};
+  const cell=(lab,k)=>{const v=n[k]/tot*100,b=past.length>=5?pr(k):null;return '<div><small>'+lab+'</small><b>'+Math.round(v)+'%</b>'+(b!=null?'<span class="cap">평소 '+Math.round(b)+'%</span>':"")+'</div>';};
+  return '<div class="pct3">'+cell("깊은 수면","deep")+cell("REM","rem")+cell("얕은 수면","core")+'</div>';}
+/* 오늘 밤 목표 취침: 내일 예상 기상 − 7시간 30분, 부채가 3시간 넘으면 30분 앞당김.
+   주말 기상은 평일 기상 + 1시간 30분까지만 늦춰 잡는다(리듬이 무너지지 않게). */
+function targetBed(debt){
+  const all=arr(S.health&&S.health.sleep).slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const wakeMed=wk=>{const a=all.filter(x=>{const d=parseYmd(x.date).getDay();return(d>=1&&d<=5)===wk;}).slice(0,10).map(x=>minOfDay(x.wake)).filter(x=>x!=null);return a.length>=3?median(a):null;};
+  const tm=parseYmd(addDays(TODAY,1)).getDay(),wkday=tm>=1&&tm<=5;
+  const wd=wakeMed(true)??390;let w=wd,why="평일 기상 시각"+(wakeMed(true)!=null?"(최근 중간값)":"(기본값)");
+  if(!wkday){const we=wakeMed(false);w=Math.min(we??wd+90,wd+90);why="주말이라 평일 기상보다 최대 1시간 30분 늦게 잡은 기상 시각";}
+  const extra=debt>=180?30:0;
+  return{wake:clockStr(w),bed:clockStr(w-450-extra+1440),
+    why:why+"에서 7시간 30분을 뺐어요."+(extra?" 최근 7일 부족한 잠이 "+hm(debt)+"라 30분 더 앞당겼어요.":"")};}
 function hhmmStr(t){const m=String(t||"").match(/(\d{1,2}:\d{2})/);return m?m[1]:"—";}
 function clockStr(mins){mins=Math.round(mins)%1440;return pad(Math.floor(mins/60))+":"+pad(mins%60);}
 function lastSleeps(n){const out=[];for(let i=n-1;i>=0;i--){const x=sleepOn(addDays(TODAY,-i));if(x)out.push(x);}return out;}
