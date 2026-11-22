@@ -805,3 +805,5 @@ body::before{background:radial-gradient(70% 40% at 100% 0%,var(--color-primary-s
 .alert .ico{flex:none;margin-top:2px}
 .ico{stroke-width:1.6}
 .qk.on,[data-theme="dark"] .qk.on{border-width:1px!important;box-shadow:none!important;outline:0}
+
+/* ===== 노치 보호 (2026-11-22-7) — 이 블록은 항상 파일 맨 끝에 둘 것 ===== body::before = 상태바(노치) 가림막 전용. 배경은 html에만 그린다. 디자인 바꿀 때 body::before를 배경으로 쓰지 말 것. */ :root{--sat:env(safe-area-inset-top,0px)} html{background:radial-gradient(70% 40% at 100% 0%,var(--color-primary-soft),transparent 70%) fixed,var(--bg)} body{background:transparent} body::before{content:""!important;position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:auto!important; height:var(--sat)!important;background:var(--bg)!important;z-index:60!important;pointer-events:none!important;display:block!important} .wrap{padding-top:calc(var(--sat) + var(--sp-2))!important} .toast{top:calc(var(--sat) + 12px)} #ptr{padding-top:calc(var(--sat) + 8px)}
