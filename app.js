@@ -3,7 +3,7 @@
    점수 계산식: docs/scoring.md 와 아래 SCORE 모듈이 같아야 한다. */
 (function(){
 "use strict";
-const APP_VER="2026-11-20-3";
+const APP_VER="2026-11-22-1";
 const DEF_URL="https://script.google.com/macros/s/AKfycbxgoPMdod-SPlKH4gcsmEH5bg1GVYMmRDgropKc4qbqLEBAKAQlR95xIzrz75Zfh2o9dg/exec";
 const WEEK=["일","월","화","수","목","금","토"];
 const COND=[[1,"😫","지침"],[2,"😮‍💨","피곤"],[3,"🙂","보통"],[4,"😊","좋음"],[5,"🤩","최고"]];
@@ -395,7 +395,9 @@ function week7(){const pts=[];for(let i=6;i>=0;i--){const d=addDays(TODAY,-i);co
     return '<div class="wd'+(d===TODAY?" today":"")+'"><span class="b '+(l?l[2]:"none")+'" style="height:'+(s!=null?Math.max(12,s):8)+'%"></span><b>'+(s!=null?s:"—")+'</b><small>'+(d===TODAY?"오늘":WEEK[parseYmd(d).getDay()])+'</small></div>';}).join("")+'</div></div>';}
 function renderHome(){
   applyLunchDefault();
-  let h=homeHeader()+'<div class="home-grid"><div class="col stack">'+heroCard()+todoCard()+quickCard()+'</div><div class="col stack">'+timelineCard()+keyNums()+sleepMini()+nextPlans()+week7()+alertsCard()+'</div></div>';
+  /* 벤토 그리드: 카드마다 메시지 하나, 크기는 중요도 순 (디자인 v3) */
+  const B=(cls,html)=>html?'<div class="bx '+cls+'">'+html+'</div>':"";
+  let h=homeHeader()+'<div class="bento">'+B("b-hero",heroCard())+B("b-sleep",sleepMini())+B("b-nums",keyNums())+B("b-todo",todoCard())+B("b-next",nextPlans())+B("b-week",week7())+B("b-quick",quickCard())+B("b-time",timelineCard())+B("b-alert",alertsCard())+'</div>';
   h+='<div class="disc">건강 해석은 참고용이에요. 증상이 있거나 계속되면 진료 상담을 받아 주세요.</div>';
   $("v-home").innerHTML=h;
   bindNoticeRows($("v-home"));

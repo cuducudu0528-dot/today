@@ -470,3 +470,65 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area
 @media (max-width:360px){.qgrid{grid-template-columns:repeat(2,1fr)}.sigs{grid-template-columns:repeat(3,1fr)}.kns{grid-template-columns:1fr 1fr}}
 .hhd .gr{word-break:keep-all}
 @media (max-width:380px){.hhd .gr{font-size:18px}.one{font-size:19px}}
+
+/* ===== 디자인 v3 (2026-11-22) — 벤토 + 절제된 글래스 + 그레이니 그라데이션 + 스위스 정렬 ===== */
+:root{--grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --glass:rgba(255,255,255,.62); --glass-line:rgba(255,255,255,.7); --mesh-a:rgba(47,191,155,.16); --mesh-b:rgba(91,141,239,.12); --mesh-c:rgba(245,181,68,.08); --grain-op:.05}
+[data-theme="dark"]{--glass:rgba(23,27,34,.6); --glass-line:rgba(255,255,255,.09); --mesh-a:rgba(79,209,176,.10); --mesh-b:rgba(122,162,247,.10); --mesh-c:rgba(176,140,255,.06); --grain-op:.07}
+/* 배경: 은은한 메시 + 노이즈 (텍스트 대비 유지, 스크롤과 무관하게 고정) */
+body::before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;
+  background:radial-gradient(60% 45% at 12% 0%,var(--mesh-a),transparent 70%),radial-gradient(50% 40% at 100% 18%,var(--mesh-b),transparent 70%),radial-gradient(60% 50% at 50% 110%,var(--mesh-c),transparent 70%),var(--bg)}
+body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-image:var(--grain);opacity:var(--grain-op);mix-blend-mode:overlay}
+body{background:transparent}
+
+/* 벤토 그리드: 모바일 1열 → 태블릿 2열 → PC 4열 */
+.bento{display:grid;grid-template-columns:1fr;gap:var(--sp-3);grid-auto-flow:row dense}
+.bx{display:flex;flex-direction:column;min-width:0}
+.bx>.card,.bx>section,.bx>div:only-child{flex:1}
+@media (min-width:640px){
+  .wrap{max-width:760px}
+  .bento{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-4)}
+  .b-hero,.b-week,.b-time{grid-column:1/-1}
+}
+@media (min-width:1040px){
+  .wrap{max-width:1160px}
+  .bento{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .b-hero{grid-column:span 2;grid-row:span 2}
+  .b-sleep,.b-nums{grid-column:span 2}
+  .b-todo,.b-next,.b-quick,.b-alert{grid-column:span 1}
+  .b-week{grid-column:span 2}
+  .b-time{grid-column:span 2}
+}
+
+/* 히어로: 그레이니 그라데이션 카드 (한 장만) */
+.b-hero>.card{background:radial-gradient(120% 90% at 0% 0%,var(--accent-bg),transparent 60%),radial-gradient(90% 80% at 100% 100%,var(--blue-bg),transparent 65%),var(--card);isolation:isolate}
+.b-hero>.card::after{content:"";position:absolute;inset:0;z-index:-1;background-image:var(--grain);opacity:calc(var(--grain-op)*1.4);mix-blend-mode:overlay;pointer-events:none;border-radius:inherit}
+
+/* 카드: 얇은 경계 + 낮은 그림자 (스위스식 절제) */
+.card{border:1px solid var(--line)}
+[data-theme="dark"] .card{box-shadow:0 1px 0 rgba(255,255,255,.03) inset}
+.card h3,.card .ttl,.card .ct{letter-spacing:-.02em}
+
+/* 리퀴드 글래스: 탭바만 — 떠 있는 알약 */
+.tabbar{left:50%;right:auto;bottom:calc(10px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(560px,calc(100% - 24px));
+  padding:6px;border:1px solid var(--glass-line);border-radius:var(--r-pill);background:var(--glass);
+  backdrop-filter:blur(22px) saturate(170%);-webkit-backdrop-filter:blur(22px) saturate(170%);
+  box-shadow:0 10px 30px -12px rgba(15,20,30,.28),inset 0 1px 0 rgba(255,255,255,.35)}
+[data-theme="dark"] .tabbar{box-shadow:0 12px 32px -12px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.06)}
+.tabbar a{border-radius:var(--r-pill);padding:6px 0;transition:background .2s var(--ease),color .2s var(--ease)}
+.tabbar a.on{background:var(--accent-bg)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.tabbar{background:var(--card)}}
+@media (prefers-reduced-transparency:reduce){.tabbar{background:var(--card);backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media (min-width:1040px){.tabbar{width:560px}}
+
+/* 키보드 포커스 */
+:focus-visible{outline:2.5px solid var(--accent);outline-offset:2px;border-radius:8px}
+.tabbar a:focus-visible{outline-offset:-2px;border-radius:var(--r-pill)}
+
+/* 진입 모션 (줄이기 설정 시 없음) */
+@media (prefers-reduced-motion:no-preference){
+  .bento>.bx{animation:bxIn .42s var(--ease) both}
+  .bento>.bx:nth-child(2){animation-delay:.03s}.bento>.bx:nth-child(3){animation-delay:.06s}.bento>.bx:nth-child(4){animation-delay:.09s}
+  .bento>.bx:nth-child(5){animation-delay:.12s}.bento>.bx:nth-child(n+6){animation-delay:.15s}
+}
+@keyframes bxIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
