@@ -3,18 +3,25 @@
    점수 계산식: docs/scoring.md 와 아래 SCORE 모듈이 같아야 한다. */
 (function(){
 "use strict";
-const APP_VER="2026-11-22-5";
+const APP_VER="2026-11-22-6";
 const DEF_URL="https://script.google.com/macros/s/AKfycbxgoPMdod-SPlKH4gcsmEH5bg1GVYMmRDgropKc4qbqLEBAKAQlR95xIzrz75Zfh2o9dg/exec";
 const WEEK=["일","월","화","수","목","금","토"];
 const COND=[[1,"😫","지침"],[2,"😮‍💨","피곤"],[3,"🙂","보통"],[4,"😊","좋음"],[5,"🤩","최고"]];
 const WORK=["등","팔","어깨","가슴","하체","유산소","스트레칭"];
 const MOOD=["평온","좋음","피곤","스트레스","우울","예민"];
 const BRIEF_KINDS=["아침","저녁","주간","월간","마감"];
+const KIND_ICO={"아침":"sun","저녁":"moon","주간":"cal","월간":"cal","마감":"clock","알림":"bell","질문":"list","일본어":"doc","출발":"foot","기타":"bell"};
+const noEmo=t=>String(t).replace(/^[\s\u2600-\u27BF\u{1F000}-\u{1FAFF}\uFE0F]+/u,"");
 const KIND_ICON={"아침":"☀️","저녁":"🌙","주간":"🗓️","월간":"📆","마감":"⏰","알림":"🔔","질문":"📝","일본어":"🇯🇵","출발":"🚶","기타":"💬"};
 const SYNC_LATE_H=14;   // 이 시간 넘게 새 건강 데이터가 없으면 '동기화 지연'
 
 /* ---------- 아이콘 (한 가지 라인 세트, 24 그리드, 선 1.8) ---------- */
 const P={
+  cup:'<path d="M4 9h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M17 11h1.5a2.5 2.5 0 0 1 0 5H17M8 3.5v2.5M12 3.5v2.5"/>',
+  smile:'<circle cx="12" cy="12" r="8.5"/><path d="M8.5 14a4 4 0 0 0 7 0M9.5 9.8h.01M14.5 9.8h.01"/>',
+  glass:'<path d="M7 3h10l-1 9a4 4 0 0 1-8 0z"/><path d="M12 16v5M8.5 21h7M7.6 8h8.8"/>',
+  pill:'<rect x="3.5" y="8.5" width="17" height="7" rx="3.5" transform="rotate(-35 12 12)"/><path d="m9.7 8.7 4.6 6.6"/>',
+  run:'<circle cx="14.5" cy="4.5" r="1.8"/><path d="M9 21l2.5-5 3 2.5V22M6 12l3-3.5 4 1 2.5 3.5H19M11.5 16l1-6.5"/>',
   home:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h5v-6h4v6h5V9.5"/>',
   moon:'<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
   heart:'<path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7a4.3 4.3 0 0 1 7.5 2.8C19.5 15.4 12 20 12 20z"/>',
@@ -356,11 +363,11 @@ function todoCard(){const hr=new Date().getHours();const L=bodyLine();const out=
 function quickCard(){const a=today.alcohol;
   const q=(attrs,icon,lab,val,on)=>'<button class="qk'+(on?" on":"")+'" '+attrs+'><span class="qi">'+icon+'</span><b>'+lab+'</b><small>'+val+'</small></button>';
   return '<div class="card"><div class="card-hd">'+ico("plus","c-accent")+'<h3>빠른 기록</h3><span class="cap" id="savedNote">'+esc(savedMsg)+'</span></div><div class="qgrid">'+
-    q('data-act="water+"',"💧","물",today.water+" / 8잔",today.water>0)+q('data-act="coffee+"',"☕","커피",today.coffee+"잔",today.coffee>0)+
-    q('data-act="picker" data-p="cond"',"🙂","컨디션",today.condition.length||today.mood.length?[today.condition.map(n=>COND[n-1][2]).join("·"),today.mood.join("·")].filter(Boolean).join(" / "):"누르기",today.condition.length+today.mood.length>0)+
-    q('data-act="picker" data-p="alc"',"🍺","술",alcText(a)||"안 마심",a.lv!==0)+
-    q('data-act="picker" data-p="supp"',"💊","영양제",today.supplement.length?today.supplement.length+"개 먹음":"안 먹음",today.supplement.length>0)+
-    q('data-act="picker" data-p="work"',"🏃","운동",today.workout.length?today.workout.join("·"):"없음",today.workout.length>0)+
+    q('data-act="water+"',ico("drop"),"물",today.water+" / 8잔",today.water>0)+q('data-act="coffee+"',ico("cup"),"커피",today.coffee+"잔",today.coffee>0)+
+    q('data-act="picker" data-p="cond"',ico("smile"),"컨디션",today.condition.length||today.mood.length?[today.condition.map(n=>COND[n-1][2]).join("·"),today.mood.join("·")].filter(Boolean).join(" / "):"누르기",today.condition.length+today.mood.length>0)+
+    q('data-act="picker" data-p="alc"',ico("glass"),"술",alcText(a)||"안 마심",a.lv!==0)+
+    q('data-act="picker" data-p="supp"',ico("pill"),"영양제",today.supplement.length?today.supplement.length+"개 먹음":"안 먹음",today.supplement.length>0)+
+    q('data-act="picker" data-p="work"',ico("run"),"운동",today.workout.length?today.workout.join("·"):"없음",today.workout.length>0)+
     '</div><div class="cap" style="margin-top:8px">물·커피는 누를 때마다 1잔씩 늘어요. 빼려면 건강 탭에서요.</div></div>';}
 const mealOpen=new Set();
 function timelineCard(){const n=sleepOn(TODAY);const tb=targetBed(lastSleeps(7).reduce((a,x)=>a+Math.max(0,420-(x.asleep||0)),0));const hr=new Date().getHours();
@@ -408,7 +415,7 @@ function alertsCard(){
   const notes=S.briefs.filter(x=>str(x.date)===TODAY&&!BRIEF_KINDS.includes(str(x.kind))).slice(0,3);
   if(!al.length&&!notes.length)return"";
   let h='<div class="card"><div class="card-hd">'+ico("bell","c-zap")+'<h3>중요한 알림</h3><a class="more" href="#brief">모두'+ico("chev","ico-sm")+'</a></div>';
-  h+=al.map(a=>'<div class="alert" style="margin:0 0 8px">'+esc(a)+'</div>').join("");
+  h+=al.map(a=>'<div class="alert" style="margin:0 0 8px">'+ico("bulb","ico-sm")+'<span>'+esc(noEmo(a))+'</span></div>').join("");
   h+='<div class="list">'+notes.map(noticeRow).join("")+'</div>';
   return h+'</div>';
 }
@@ -580,7 +587,7 @@ function logCard(){
   '<div class="lbl" style="margin-left:0">💊 영양제 <button class="lnk" data-act="picker" data-p="supp">목록 편집</button></div>'+(mySupps().length?chips("supp",mySupps(),v=>today.supplement.includes(v)):'<div class="cap">목록 편집에서 내 영양제를 골라 주세요.</div>')+
   '<div class="lbl" style="margin-left:0">🍺 술 <button class="lnk" data-act="picker" data-p="alc">종류·잔 수</button></div>'+chips("alc",ALC.map((l,i)=>[i,l]),v=>today.alcohol.lv===+v||(+v===0&&!today.alcohol.lv),"alc5")+(today.alcohol.type?'<div class="cap" style="margin-top:6px">'+esc(alcText(today.alcohol))+'</div>':"")+
   '<div class="lbl" style="margin-left:0">식사 <small>평일 점심은 '+esc(lunchPlace())+'이 기본이에요</small></div>'+meal("breakfast","아침")+meal("lunch","점심")+meal("dinner","저녁")+
-  '<div class="lbl" style="margin-left:0">메모</div><textarea class="field" id="fMemo" rows="3" placeholder="📝 메모" maxlength="1000"></textarea>'+
+  '<div class="lbl" style="margin-left:0">메모</div><textarea class="field" id="fMemo" rows="3" placeholder="메모" maxlength="1000"></textarea>'+
   '<div class="saved" id="savedNote">'+esc(savedMsg)+'</div></div>';
 }
 const FIELDS=[["fMemo","memo"]];
@@ -595,7 +602,7 @@ document.addEventListener("click",e=>{const a=e.target.closest("[data-act]");if(
    브리핑 (오늘 브리핑 + 받은 알림함)
    ===================================================================== */
 function noticeRow(b){
-  return '<div class="li tap'+(isUnread(b)?" unread":"")+'" data-bid="'+esc(b.id||"")+'"><div class="ic">'+esc(str(b.icon)||KIND_ICON[b.kind]||"💬")+'</div><div class="m"><div class="t">'+esc(str(b.headline)||"알림")+'</div>'+
+  return '<div class="li tap'+(isUnread(b)?" unread":"")+'" data-bid="'+esc(b.id||"")+'"><div class="ic">'+ico(KIND_ICO[b.kind]||"bell")+'</div><div class="m"><div class="t">'+esc(str(b.headline)||"알림")+'</div>'+
     ((str(b.sub)||str(arr(b.items)[0]))?'<div class="s">'+esc(str(b.sub)||str(arr(b.items)[0]))+'</div>':"")+'</div><div class="r">'+(str(b.date)!==TODAY?shortDate(b.date)+" ":"")+hhmm(b.createdAt)+'</div></div>';}
 function bindNoticeRows(root){root.querySelectorAll("[data-bid]").forEach(r=>r.onclick=()=>{const b=S.briefs.find(x=>String(x.id)===r.dataset.bid);if(b)openBrief(b);});}
 function renderBrief(){
@@ -617,7 +624,7 @@ function renderBrief(){
   bindNoticeRows($("v-brief"));
 }
 function openBrief(b){
-  let h='<div class="cap">'+esc((str(b.icon)||KIND_ICON[b.kind]||"💬")+" "+(str(b.kind)||"알림")+" · "+korDate(str(b.date)||TODAY)+(b.createdAt?" · "+hhmm(b.createdAt):""))+'</div><div class="bh">'+esc(str(b.headline)||"알림")+'</div>';
+  let h='<div class="cap">'+esc((str(b.kind)||"알림")+" · "+korDate(str(b.date)||TODAY)+(b.createdAt?" · "+hhmm(b.createdAt):""))+'</div><div class="bh">'+esc(str(b.headline)||"알림")+'</div>';
   if(b.sub)h+='<div class="muted">'+esc(str(b.sub))+'</div>';
   arr(b.alerts).forEach(a=>h+='<div class="alert">'+esc(str(a))+'</div>');
   if(b.ai&&(b.ai.condition||b.ai.sleep))h+='<div class="card" style="margin-top:12px">'+aiBlock([str(b.ai.condition),str(b.ai.sleep)].filter(Boolean).join(" "),true)+'</div>';
@@ -628,11 +635,11 @@ function openBrief(b){
   h+=sec("업무",arr(b.tasks).map(p=>'<div class="li"><div class="m"><div class="t">'+esc(str(p))+'</div></div></div>').join(""));
   h+=sec("내용",arr(b.items).map(p=>'<div class="li"><div class="m"><div class="t" style="font-weight:500">'+esc(str(p))+'</div></div></div>').join(""));
   const mk=arr(b.markets);if(mk.length)h+='<div class="lbl">지표</div><div class="tiles" style="margin-top:0">'+mk.map(t=>'<div class="metric"><div class="lb">'+esc(str(t.label))+'</div><div class="v" style="font-size:18px">'+esc(str(t.value))+'</div>'+(t.note?'<div class="n">'+esc(str(t.note))+'</div>':"")+'</div>').join("")+'</div>';
-  const qs=arr(b.questions);if(qs.length)h+='<div class="q"><b>❓ 답해 주세요</b>'+qs.map(q=>'<div>'+esc(str(q))+'</div>').join("")+'<div class="cap" style="margin-top:6px">건강 탭 \'오늘 기록\'에서 누르거나 Claude에게 말해 주세요</div></div>';
+  const qs=arr(b.questions);if(qs.length)h+='<div class="q"><b>답해 주세요</b>'+qs.map(q=>'<div>'+esc(str(q))+'</div>').join("")+'<div class="cap" style="margin-top:6px">건강 탭 \'오늘 기록\'에서 누르거나 Claude에게 말해 주세요</div></div>';
   arr(b.sections).forEach(s=>{h+=sec(esc(str(s.title)),arr(s.items).map(p=>'<div class="li"><div class="m"><div class="t" style="font-weight:500">'+esc(str(p))+'</div></div></div>').join(""));});
   if(b.quote)h+='<p class="muted" style="text-align:center;margin:20px 0 0">“'+esc(str(b.quote))+'”</p>';
   if(b.footnote)h+='<div class="cap" style="margin-top:16px">'+esc(str(b.footnote))+'</div>';
-  openSheet((str(b.icon)||KIND_ICON[b.kind]||"💬")+" "+(str(b.kind)||"알림"),h);
+  openSheet(str(b.kind)||"알림",h);
 }
 
 /* =====================================================================

@@ -788,3 +788,20 @@ body::before{background:radial-gradient(70% 40% at 100% 0%,var(--color-primary-s
 .hhd .sync{display:inline-flex;margin-top:10px;align-self:auto}
 .hero.score .cond2{margin-top:0!important;border-top:0!important;padding-top:0!important}
 .sec-hd .more,.card-hd .more{color:var(--sub);text-decoration:none;display:inline-flex;align-items:center;font-size:13px}
+
+/* ===== 그림체 통일 v8 (2026-11-22-6) — 이모지 → 같은 굵기의 선 아이콘, 장식은 네이비 선화 ===== */
+.hero.quote::before{content:"";position:absolute;right:-18px;top:-10px;width:190px;height:210px;border-radius:0;background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20200%20220%22%20fill%3D%22none%22%20stroke%3D%22%23354B65%22%20stroke-width%3D%221.3%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M190%20214C150%20170%20128%20120%20120%2060%20116%2034%20118%2018%20124%206%22/%3E%3Cpath%20d%3D%22M121%2070C96%2062%2074%2070%2058%2092c24%208%2048%204%2063-22z%22/%3E%3Cpath%20d%3D%22M121%2070c-12-14-30-22-52-20%22/%3E%3Cpath%20d%3D%22M126%20118c22-12%2046-10%2064%208-22%2014-46%2012-64-8z%22/%3E%3Cpath%20d%3D%22M126%20118c18-2%2038%204%2050%2014%22/%3E%3Cpath%20d%3D%22M137%20160c-26-4-48%208-60%2030%2026%204%2048-6%2060-30z%22/%3E%3Cpath%20d%3D%22M137%20160c-18%206-34%2016-46%2026%22/%3E%3Cpath%20d%3D%22M119%2034c18-14%2040-16%2058-4-18%2016-40%2016-58%204z%22/%3E%3Cpath%20d%3D%22M119%2034c18-2%2034%200%2046-2%22/%3E%3C/svg%3E") no-repeat right top/contain;opacity:.32;z-index:-1}
+.hero.quote::after{display:none}
+[data-theme="dark"] .hero.quote::before{filter:invert(1) brightness(1.4);opacity:.18}
+.hero.quote .one,.hero.quote .tip{max-width:88%}
+.qk .qi{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:var(--card);color:var(--accent);font-size:0;margin-bottom:6px;border:1px solid var(--line)}
+.qk .qi .ico{width:20px;height:20px}
+.qk.on,[data-theme="dark"] .qk.on{background:var(--accent-bg);border:1px solid rgba(53,75,101,.25)}
+.qk.on .qi{background:var(--accent);color:#fff;border-color:transparent}
+[data-theme="dark"] .qk.on .qi{color:#13171D}
+.li .ic{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:12px;background:var(--surface);color:var(--accent);font-size:0;flex:none}
+.li .ic .ico{width:20px;height:20px}
+.alert{display:flex;gap:8px;align-items:flex-start}
+.alert .ico{flex:none;margin-top:2px}
+.ico{stroke-width:1.6}
+.qk.on,[data-theme="dark"] .qk.on{border-width:1px!important;box-shadow:none!important;outline:0}
