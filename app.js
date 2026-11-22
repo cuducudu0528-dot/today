@@ -3,7 +3,7 @@
    점수 계산식: docs/scoring.md 와 아래 SCORE 모듈이 같아야 한다. */
 (function(){
 "use strict";
-const APP_VER="2026-11-22-4";
+const APP_VER="2026-11-22-5";
 const DEF_URL="https://script.google.com/macros/s/AKfycbxgoPMdod-SPlKH4gcsmEH5bg1GVYMmRDgropKc4qbqLEBAKAQlR95xIzrz75Zfh2o9dg/exec";
 const WEEK=["일","월","화","수","목","금","토"];
 const COND=[[1,"😫","지침"],[2,"😮‍💨","피곤"],[3,"🙂","보통"],[4,"😊","좋음"],[5,"🤩","최고"]];
@@ -326,19 +326,20 @@ const PICKERS={cond:["컨디션 · 기분",condPicker],alc:["술",alcPicker],sup
    ===================================================================== */
 function homeHeader(){const d=parseYmd(TODAY);const[g]=greeting();const age=healthAge();
   const sync=lastHealthAt()?'<span class="sync'+(age!=null&&age>SYNC_LATE_H?" late":"")+'">'+ico("refresh","ico-xs")+esc(String(lastHealthAt()).slice(11,16)||"")+' 동기화</span>':"";
-  return '<div class="hhd"><div><div class="dt">'+(d.getMonth()+1)+'월 '+d.getDate()+'일 '+WEEK[d.getDay()]+'요일</div><div class="gr">'+g+', 연서 씨</div></div>'+sync+'<a class="iconbtn" href="#me" aria-label="내 정보">'+ico("user")+'</a></div>';}
+  const unread=(S.briefs||[]).filter(isUnread).length;
+  return '<div class="hhd"><div><div class="dt">'+ico("cal","ico-sm")+(d.getMonth()+1)+'월 '+d.getDate()+'일 '+WEEK[d.getDay()]+'요일</div><div class="gr">'+g+', 연서 씨</div>'+sync+'</div><a class="iconbtn" href="#brief" aria-label="브리핑 알림">'+ico("bell")+(unread?'<i class="dot"></i>':"")+'</a><a class="iconbtn" href="#me" aria-label="내 정보">'+ico("user")+'</a></div>';}
 function heroCard(){const L=bodyLine();const ai=briefAI("condition");
   let h='<div class="hero">';
   if(L.score==null)return h+'<div class="one">'+esc(L.head)+'</div><div class="tip">'+esc(L.tip)+'</div><button class="btn-sub" onclick="load(true)">'+ico("refresh","ico-sm")+' 지금 다시 불러오기</button></div>';
   const c=L.c;const l=lv5(c.score);
-  h+='<div class="tag">'+ico(ai?"spark":"list","ico-xs")+(ai?"AI 해석":"오늘의 한 문장")+'</div><div class="one">'+esc(ai||L.head)+'</div><div class="tip">'+esc(L.tip)+'</div>'+(L.extra?'<div class="cap" style="margin-top:6px">'+esc(L.extra)+'</div>':"");
+  h='<div class="hero quote">'; h+='<div class="tag">'+ico("spark","ico-xs")+(ai?"AI 해석":"오늘의 한 문장")+'</div><div class="one">'+esc(ai||L.head)+'</div><div class="tip">'+esc(L.tip)+'</div>'+(L.extra?'<div class="cap" style="margin-top:6px">'+esc(L.extra)+'</div>':"");
   // 링 + 구성 3줄
   const y=SCORE.condition(addDays(TODAY,-1));
   const pv=k=>{const p=c.parts.find(x=>x.k===k);return p?p.v:null;};
   const rec=avg([pv("HRV"),pv("안정심박")]);const rb=[vsBase("HRV",addDays(TODAY,-1)),vsBase("안정심박",addDays(TODAY,-1))];const recOff=(rb[0]&&/낮음/.test(rb[0].st))||(rb[1]&&/높음/.test(rb[1].st));const st=metric(addDays(TODAY,-1),"걸음");
-  const line=(name,v,txt)=>'<div class="cl"><span class="n">'+name+'</span><span class="bar"><i style="width:'+Math.round(clamp(v==null?0:v,0,1)*100)+'%"></i></span><span class="t">'+txt+'</span></div>';
-  h+='<div class="cond2"><div class="rwrap">'+ring(c.score/100,"var(--accent)")+'<div class="sc-in"><b>'+c.score+'</b><small>컨디션</small></div></div><div class="cls">'+lvBadge(c.score)+
-    line("수면",pv("수면"),c.sleep.score+"점")+line("회복",rec,rec==null?"기록 쌓는 중":rec<.35?"회복 부족":recOff||rec<.6?"조금 떨어짐":"평소 범위")+line("활동",st==null?null:st/8000,st==null?"—":"어제 "+fmtN(st)+"보")+'</div></div>';
+  const line=(name,v,txt,ic)=>'<div class="cl">'+ico(ic,"ico-sm")+'<span class="n">'+name+'</span><span class="bar"><i style="width:'+Math.round(clamp(v==null?0:v,0,1)*100)+'%"></i></span><span class="t">'+txt+'</span></div>';
+  h+='</div><div class="hero score"><div class="cond2"><div class="rcol"><div class="rwrap">'+ring(c.score/100,"var(--accent)")+'<div class="sc-in"><b>'+c.score+'</b><small>컨디션</small></div></div>'+lvBadge(c.score)+'</div><div class="cls"><div class="cls-hd">'+ico("heart","ico-sm")+'오늘의 건강 점수</div>'+
+    line("수면",pv("수면"),c.sleep.score+"점","moon")+line("회복",rec,rec==null?"기록 쌓는 중":rec<.35?"회복 부족":recOff||rec<.6?"조금 떨어짐":"평소 범위","heart")+line("활동",st==null?null:st/8000,st==null?"—":"어제 "+fmtN(st)+"보","foot")+'</div></div>';
   // 어제 대비 이유 칩
   if(y&&y.parts){const ch=c.parts.map(p=>{const q=y.parts.find(x=>x.k===p.k);if(!q)return null;const d=Math.round((p.v-q.v)*p.w);return Math.abs(d)>=2?[p.k==="최근 3일 수면"?"3일 수면":p.k,d]:null;}).filter(Boolean);
     if(ch.length)h+='<div class="why"><span class="cap">어제보다 '+(c.score-y.score>=0?"+":"")+(c.score-y.score)+'점</span>'+ch.map(([k,d])=>'<span class="wc '+(d>0?"up":"down")+'">'+k+' '+(d>0?"+":"")+d+'</span>').join("")+'</div>';}
@@ -375,13 +376,13 @@ function timelineCard(){const n=sleepOn(TODAY);const tb=targetBed(lastSleeps(7).
   h+=row(tb.bed,"moon","취침 목표",'<span class="cap">내일 '+tb.wake+' 기상 기준</span>',hr>=21?"now":"");
   return h+'</div></div>';}
 function keyNums(){const ref=addDays(TODAY,-1);
-  const one=(k,name,unit,goodUp)=>{const v=vsBase(k,ref);const y=metric(ref,k);if(y==null)return"";
+  const icn={"걸음":"foot","안정심박":"heart","HRV":"pulse"};const one=(k,name,unit,goodUp)=>{const v=vsBase(k,ref);const y=metric(ref,k);if(y==null)return"";
     const dir=v?(v.y>v.b.med?"▲":"▼"):"";const good=v&&v.st!=="평소 범위"?((/높음/.test(v.st))===goodUp?"up":"down"):"";
-    return '<div class="kn"><small>'+name+'</small><b>'+fmtN(y)+'<i>'+unit+'</i></b><span class="'+good+'">'+(v?dir+" "+v.st:"기준선 쌓는 중")+'</span></div>';};
+    return '<div class="kn">'+ico(icn[k],"ico-sm")+'<small>'+name+'</small><b>'+fmtN(y)+'<i>'+unit+'</i></b><span class="'+good+'">'+(v?dir+" "+v.st:"기준선 쌓는 중")+'</span></div>';};
   const r=one("걸음","어제 걸음","보",true)+one("안정심박","안정심박","bpm",false)+one("HRV","HRV","ms",true);
-  return r?'<div class="card"><div class="card-hd">'+ico("heart","c-heart")+'<h3>핵심 수치</h3><span class="cap">내 30일 평소 대비</span><a class="more" href="#health">건강'+ico("chev","ico-sm")+'</a></div><div class="kns">'+r+'</div></div>':"";}
+  return r?'<div class="sec-hd"><h3>'+ico("list","ico-sm")+'주요 건강 지표</h3><span class="cap">내 30일 평소 대비</span><a class="more" href="#health">건강'+ico("chev","ico-sm")+'</a></div><div class="kns">'+r+'</div>':"";}
 function sleepMini(){const n=sleepOn(TODAY)||latestSleep();if(!n)return"";const s=SCORE.sleep(n,sleepsBefore(n.date));
-  return '<a class="card mini-sleep" href="#sleep"><div class="card-hd">'+ico("moon","c-blue")+'<h3>'+(n.date===TODAY?"어젯밤 수면":shortDate(n.date)+" 수면")+'</h3>'+(s?lvBadge(s.score):"")+'</div><div class="ms"><b>'+hmHTML(n.asleep)+'</b><span class="cap">'+(s?"수면 점수 "+s.score:"")+' · '+esc(hhmmStr(n.bed))+'→'+esc(hhmmStr(n.wake))+'</span></div>'+stageBar(n).split('<div class="legend4">')[0]+'</a>';}
+  return '<a class="card mini-sleep" href="#sleep"><div class="card-hd">'+ico("moon","c-blue")+'<h3>'+(n.date===TODAY?"어젯밤 수면":shortDate(n.date)+" 수면")+'</h3><span class="pillbtn">수면 분석 보기'+ico("chev","ico-xs")+'</span></div><div class="ms"><b>'+hmHTML(n.asleep)+'</b><span class="cap">'+(s?"수면 점수 "+s.score:"")+' · '+esc(hhmmStr(n.bed))+'→'+esc(hhmmStr(n.wake))+'</span></div>'+stageBar(n)+'<svg class="wave" viewBox="0 0 400 120" preserveAspectRatio="none" aria-hidden="true"><path d="M0 110 C120 110 170 40 260 40 S360 80 400 20 V120 H0Z"/></svg></a>';}
 function nextPlans(){const items=planItems(TODAY);const now=pad(new Date().getHours())+":"+pad(new Date().getMinutes());const up=items.filter(i=>i.time&&i.time!=="종일"&&i.time>=now).slice(0,2);
   const w=weatherTile();
   let h='<div class="card"><div class="card-hd">'+ico("cal","c-blue")+'<h3>다음 일정</h3><a class="more" href="#plan">일정'+ico("chev","ico-sm")+'</a></div>';
