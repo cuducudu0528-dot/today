@@ -596,3 +596,43 @@ body::before{background:var(--bg-img);height:auto;bottom:0}
 .hdr .hi b{font-size:26px;font-weight:800;letter-spacing:-.045em}
 [data-theme="dark"] .card h3,[data-theme="dark"] .num{text-shadow:0 0 24px rgba(125,211,252,.15)}
 @media (prefers-reduced-transparency:reduce){.card,.hero,.sheet{-webkit-backdrop-filter:none;backdrop-filter:none}:root,[data-theme="light"]{--card:#FFF3EA}[data-theme="dark"]{--card:#121A30}}
+
+/* ===== 디자인 v5 (2026-11-22-3) — 데스크톱 배경화면 + 조화 (모서리·글씨·색 통일) ===== */
+:root{--r-card:14px; --r-btn:10px; --r-chip:8px; --r-in:8px; --r-sm:8px;
+  --font:-apple-system,BlinkMacSystemFont,'Pretendard Variable',Pretendard,'Apple SD Gothic Neo',system-ui,sans-serif}
+:root,[data-theme="light"]{
+  --bg:#D9CBEF; --ink:#1E1B2E; --sub:rgba(30,27,46,.66); --faint:rgba(30,27,46,.46); --line:rgba(255,255,255,.6);
+  --card:rgba(255,255,255,.42); --raised:rgba(255,255,255,.5); --surface:rgba(30,27,46,.07); --surface-2:rgba(255,255,255,.3);
+  --accent:#6A4FD8; --accent-ink:#5236C4; --accent-bg:rgba(106,79,216,.13);
+  --shadow:0 10px 30px -18px rgba(60,40,110,.45);
+  --bg-img:url(bg-light.svg) center/cover no-repeat,#D9CBEF; --tab-ink:rgba(30,27,46,.6); --grain-op:.05;
+}
+[data-theme="dark"]{
+  --bg:#05081A; --ink:#EEF0FF; --sub:rgba(228,230,255,.66); --faint:rgba(228,230,255,.42); --line:rgba(255,255,255,.12);
+  --card:rgba(20,24,60,.42); --raised:rgba(255,255,255,.06); --surface:rgba(255,255,255,.08); --surface-2:rgba(255,255,255,.05);
+  --accent:#9AA8FF; --accent-ink:#9AA8FF; --accent-bg:rgba(154,168,255,.15);
+  --shadow:0 18px 40px -22px rgba(0,0,0,.85);
+  --bg-img:url(bg-dark.svg) center/cover no-repeat,#05081A; --tab-ink:rgba(228,230,255,.6); --grain-op:.04;
+}
+[data-theme="dark"] body::after{background-image:var(--grain);background-size:auto;opacity:var(--grain-op);mix-blend-mode:overlay}
+
+/* 유리 하나로 통일 (히어로도 같은 재질, 테두리만 살짝 강조) */
+.b-hero>.card,[data-theme="dark"] .b-hero>.card{background:var(--card);border-color:var(--line)}
+.b-hero>.card{box-shadow:var(--g-hi),var(--shadow),inset 0 0 0 1px rgba(255,255,255,.25)}
+.mini,.kn,.qk,.sg,.metric,.insight{border-radius:10px}
+.chips button,.chip,.sync,.hdr .av,.seg,.seg button{border-radius:8px}
+.hdr .av{border-radius:50%}
+/* 탭바: 독(dock)처럼 — 중립 유리, 각진 둥근 사각 */
+.tabbar,[data-theme="dark"] .tabbar{border-radius:18px;padding:5px;background:var(--card);border:1px solid var(--line);
+  box-shadow:var(--g-hi),0 14px 34px -16px rgba(30,20,70,.55)}
+.tabbar a{border-radius:12px}
+.tabbar a.on,[data-theme="dark"] .tabbar a.on{background:var(--raised);color:var(--ink);box-shadow:var(--g-hi),0 2px 8px -3px rgba(30,20,70,.35)}
+.tabbar a.on .ico,[data-theme="dark"] .tabbar a.on .ico{color:var(--accent)}
+.primary{background:var(--accent);color:#fff;box-shadow:none}
+[data-theme="dark"] .primary{background:var(--accent);color:#0B0E2A;box-shadow:none}
+[data-theme="dark"] .card h3,[data-theme="dark"] .num{text-shadow:none}
+/* 글씨: 한 가족, 무게 2단계(600·700), 크기 단계 정리 */
+body{letter-spacing:-.01em}
+.hdr .hi b{font-size:24px;font-weight:700;letter-spacing:-.03em}
+.card h3,.card .ttl,.card .ct{font-weight:650;letter-spacing:-.015em}
+b,strong{font-weight:650}
