@@ -68,7 +68,7 @@ function view(){let v=$("aiView");if(v)return v;
       el("div",{class:"ai-log",id:"aiLog","aria-live":"polite"}),
       el("div",{class:"ai-compose",id:"aiCompose"},
         el("div",{class:"ai-tools"},
-          el("button",{class:"ai-chip"+(ST.precise?" on":""),id:"aiPrecise","aria-pressed":ST.precise?"true":"false",onclick:togglePrecise},icon("check"),"정밀 모드"),
+          el("button",{class:"ai-chip"+(ST.precise?" on":""),id:"aiPrecise",hidden:!(ST.keys&&ST.keys.claude),"aria-pressed":ST.precise?"true":"false",onclick:togglePrecise},icon("check"),"정밀 모드"),
           el("span",{class:"ai-hint",id:"aiHint",text:""})),
         el("div",{class:"ai-row"},
           el("button",{class:"ai-ib ai-mic",id:"aiMic","aria-label":"말로 하기",onclick:mic,html:SVG.mic}),
@@ -79,8 +79,13 @@ function view(){let v=$("aiView");if(v)return v;
   ta.addEventListener("input",()=>{ta.style.height="auto";ta.style.height=Math.min(ta.scrollHeight,140)+"px";});
   ta.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing&&matchMedia("(hover:hover)").matches){e.preventDefault();sendFromBox();}});
   // 키보드가 올라오면 visualViewport로 입력창 위치 보정 (S108)
-  if(window.visualViewport){const fix=()=>{const vv=window.visualViewport;const kb=Math.max(0,window.innerHeight-vv.height-vv.offsetTop);v.style.setProperty("--kb",kb+"px");};
-    visualViewport.addEventListener("resize",fix);visualViewport.addEventListener("scroll",fix);}
+  // 2026-11-25: 화면 전체를 '보이는 영역'에 맞춘다(아이폰 키보드가 올라오면 대화창 높이를 줄이고, 뒤 화면이 비치지 않게)
+  if(window.visualViewport){const fix=()=>{const vv=window.visualViewport;const kbOpen=window.innerHeight-vv.height>120;
+      v.style.top=vv.offsetTop+"px";v.style.height=vv.height+"px";v.style.bottom="auto";v.classList.toggle("kb",kbOpen);
+      if(kbOpen){const lg=$("aiLog");if(lg)lg.scrollTop=lg.scrollHeight;}
+      if(window.scrollY!==ST.prevY&&document.documentElement.classList.contains("ai-open"))window.scrollTo(0,ST.prevY);};
+    visualViewport.addEventListener("resize",fix);visualViewport.addEventListener("scroll",fix);ST.fixVV=fix;fix();}
+  ta.addEventListener("focus",()=>setTimeout(()=>{ST.fixVV&&ST.fixVV();const lg=$("aiLog");if(lg)lg.scrollTop=lg.scrollHeight;},300));
   return v;}
 function openChat(prefill){if(!enabled()){location.hash="#me";setTimeout(()=>{const c=$("aiConnect");if(c)c.scrollIntoView({behavior:"smooth"});},200);return;}
   const v=view();ST.prevY=window.scrollY;ST.open=true;document.documentElement.classList.add("ai-open");v.classList.add("on");
@@ -206,7 +211,8 @@ function memCard(m){const w=el("div",{class:"pcard mem"});
   w.appendChild(el("div",{class:"phd"},icon("spark"),el("b",{text:"기억해 둘까요?"}),el("span",{class:"otag "+(m.source==="derived"?"warn":m.source==="web"?"gray":""),text:srcKo})));
   const t=el("div",{class:"ptxt",text:m.content});w.appendChild(t);
   if(m.source_url)w.appendChild(el("a",{class:"cap",href:m.source_url,target:"_blank",rel:"noopener noreferrer",text:m.source_url.slice(0,50)}));
-  if(m.status==="active"){w.appendChild(el("small",{class:"cap",text:"자동 저장됨(직접 한 말)"}));return w;}
+  if(m.status==="active"){w.querySelector(".phd b").textContent="기억했어요";
+    w.appendChild(el("div",{class:"pacts"},el("button",{class:"ai-btn ghost",onclick:async e=>{const r=await call({action:"memory_forget",id:m.id});e.target.replaceWith(el("small",{class:"cap",text:r.ok?"지웠어요":"지우지 못했어요"}));}},"이건 잊어 줘")));return w;}
   const done=txt=>{w.querySelector(".pacts").replaceWith(el("small",{class:"cap",text:txt}));};
   w.appendChild(el("div",{class:"pacts"},
     el("button",{class:"ai-btn",onclick:async()=>{const r=await call({action:"memory_decide",id:m.id,decision:"save"});done(r.ok?"저장했어요":"저장 실패");}},"저장"),
@@ -215,11 +221,12 @@ function memCard(m){const w=el("div",{class:"pcard mem"});
     el("button",{class:"ai-btn ghost",onclick:async()=>{const r=await call({action:"memory_decide",id:m.id,decision:"reject"});done(r.ok?"버렸어요":"실패");}},"거절")));
   return w;}
 function personaCard(p){const w=el("div",{class:"pcard per"});
-  w.appendChild(el("div",{class:"phd"},icon("user"),el("b",{text:"성격 변경 제안"}),el("span",{class:"otag warn",text:"승인해야 바뀌어요"})));
+  w.appendChild(el("div",{class:"phd"},icon("user"),el("b",{text:p.applied?"스스로 성격을 바꿨어요":"성격 변경 제안"}),el("span",{class:"otag "+(p.applied?"":"warn"),text:p.applied?"v"+p.version+" 적용됨":"승인해야 바뀌어요"})));
   w.appendChild(el("div",{class:"ptxt",text:p.summary||""}));
   const FK={name:"이름","voice.politeness":"말투","voice.directness":"직설 정도",traits:"성격",values:"가치",curiosity_topics:"호기심",disagreement_policy:"반대 의견",uncertainty_policy:"모를 때",growth_policy:"성장 방식",notify_policy:"알림 방식",never_do:"하지 않을 것",boundaries:"지킬 선"};
   const VK={high:"높음",very_high:"아주 높음",medium:"보통"};
   const diff=el("pre",{class:"diff"});String(p.diff||"").split("\n").forEach(l=>{const t=l.replace(/^([+-]) ([\w.]+):/,(m,a,f)=>a+" "+(FK[f]||f)+":").replace(/"(high|very_high|medium)"/g,(m,v)=>VK[v]);diff.appendChild(el("span",{class:l[0]==="+"?"add":l[0]==="-"?"del":"",text:t+"\n"}));});w.appendChild(diff);
+  if(p.applied){w.appendChild(el("div",{class:"pacts"},el("button",{class:"ai-btn ghost",onclick:async e=>{const r=await call({action:"persona_rollback",version:Math.max(1,p.version-1)});e.target.replaceWith(el("small",{class:"cap",text:r.ok?"이전 성격으로 되돌렸어요":"되돌리지 못했어요"}));refreshPersona();}},"되돌리기")));return w;}
   const done=txt=>{const a=w.querySelector(".pacts");a&&a.replaceWith(el("small",{class:"cap",text:txt}));};
   w.appendChild(el("div",{class:"pacts"},
     el("button",{class:"ai-btn",onclick:async()=>{const r=await call({action:"persona_decide",id:p.id,decision:"approve"});done(r.ok?"승인했어요 · 성격 v"+r.version:"실패");refreshPersona();}},"승인"),
@@ -263,7 +270,11 @@ async function send(o){
   // 진행 폴링 1.5초 (S106)
   clearInterval(ST.poll);
   ST.poll=setInterval(async()=>{const p=await call({action:"poll",sessionId:ST.sid},8000);if(p.ok&&p.progress&&!p.progress.idle&&ST.busy){Object.assign(live,p.progress);renderLog();}},1500);
-  const r=await call({action:"chat",sessionId:ST.sid,input:o.input,precise:ST.precise,inputMode:o.inputMode||"text",outputMode:o.outputMode||"text",continue_token:o.continue_token||undefined},300000);
+  const nBefore=await aiTurnCount();
+  const r0=await call({action:"chat",sessionId:ST.sid,input:o.input,precise:!!(ST.precise&&ST.keys&&ST.keys.claude),inputMode:o.inputMode||"text",outputMode:o.outputMode||"text",continue_token:o.continue_token||undefined},300000);
+  // 2026-11-25: 아이폰이 긴 요청을 끊어도 서버는 끝까지 생각한다 → 대화 기록에서 답을 찾아 이어 붙인다
+  let r=r0;
+  if(!r.ok&&(r.error==="NETWORK"||r.error==="TIMEOUT")){live.doing="연결이 잠깐 끊겼어요. 답을 다시 받아오는 중…";renderLog();r=await recoverAnswer(o.input,nBefore)||r;}
   clearInterval(ST.poll);ST.busy=false;$("aiSend").disabled=false;
   ST.msgs=ST.msgs.filter(m=>m!==live);
   if(!r.ok){ST.msgs.push({t:"sys",kind:"err",text:errText(r.error),retry:"send",payload:o});renderLog();orbFromInbox();return;}
@@ -271,9 +282,19 @@ async function send(o){
   const f=r.final||{};
   const tools=(r.nodes||[]).filter(n=>n.tool).map(n=>({name:n.tool,ok:n.tool_ok}));
   ST.msgs.push({t:"ai",text:f.reply_text||"",nodes:r.nodes,rootWhy:r.root_why,tools,cards:r.cards,sources:f.sources,question:f.proactive_question,mems:f.memory_candidates,persona:f.persona_proposal,audit:r.audit,cont:r.continue_token,voice:f.voice_script,finisher:r.finisher});
+  if(f.persona_proposal&&f.persona_proposal.applied)refreshPersona();
   saveMsgs();renderLog();orbFromInbox();
   if(o.inputMode==="voice"&&f.voice_script)speak(f.voice_script);
   if(r.usage&&r.usage.today)ST.usageToday=r.usage.today;}
+async function aiTurnCount(){if(!ST.sid)return 0;const h=await call({action:"history",sessionId:ST.sid,limit:60},10000);return h.ok?(h.turns||[]).filter(t=>t.role==="ai").length:-1;}
+async function recoverAnswer(input,nBefore){if(nBefore<0)return null;
+  for(let i=0;i<40;i++){await new Promise(res=>setTimeout(res,i<3?4000:8000));
+    if(navigator.onLine===false)continue;
+    const h=await call({action:"history",sessionId:ST.sid,limit:60},10000);if(!h.ok)continue;
+    const ais=(h.turns||[]).filter(t=>t.role==="ai");
+    if(ais.length>nBefore){const t=ais[ais.length-1];return{ok:true,sessionId:ST.sid,final:{reply_text:t.content,sources:[]},nodes:t.nodes||[],cards:[],recovered:true};}}
+  return null;}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&ST.fixVV)ST.fixVV();});
 function retry(m,i){ST.msgs.splice(i,1);if(m.retry==="boot"){booted=false;boot();}else if(m.payload){const p=Object.assign({},m.payload,{silent:true});send(p);}renderLog();}
 function togglePrecise(){ST.precise=!ST.precise;LS("ai_precise",ST.precise?"1":"0");const b=$("aiPrecise");b.classList.toggle("on",ST.precise);b.setAttribute("aria-pressed",ST.precise?"true":"false");
   A.toast&&A.toast(ST.precise?"정밀 모드: 마지막 말투를 Claude가 다듬어요":"정밀 모드 끔");}
@@ -301,7 +322,7 @@ function sideContent(){const T=ST.together;const box=el("div",{class:"side-in"})
   if(!T.recent.length)box.appendChild(el("div",{class:"cap",text:"아직 저장한 기억이 없어요."}));
   T.recent.forEach(m=>box.appendChild(el("div",{class:"mrow2"},el("span",{class:"otag "+(m.source==="derived"?"warn":m.source==="web"?"gray":""),text:m.source==="user_said"?"직접":m.source==="web"?"웹":"추론"}),el("span",{class:"t",text:m.content}),
     el("button",{class:"ai-lnk",text:"잊기",onclick:async e=>{if(!confirm("이 기억을 완전히 지울까요?"))return;const r=await call({action:"memory_forget",id:m.id});if(r.ok){e.target.closest(".mrow2").remove();A.toast&&A.toast("완전히 지웠어요");}}}))));
-  if(T.journal&&T.journal.length){box.appendChild(el("div",{class:"lbl2",text:"최근 회고"}));T.journal.slice(0,2).forEach(j=>box.appendChild(el("div",{class:"jr"},el("small",{text:j.date+" · "+({daily:"하루",weekly:"주간",usage:"사용량"}[j.kind]||j.kind)}),el("p",{text:j.summary}))));}
+  if(T.journal&&T.journal.length){box.appendChild(el("div",{class:"lbl2",text:"최근 생각·회고"}));T.journal.slice(0,4).forEach(j=>box.appendChild(el("div",{class:"jr"},el("small",{text:j.date+" · "+({daily:"하루 회고",weekly:"주간 회고",usage:"사용량",thought:"혼자 한 생각"}[j.kind]||j.kind)}),el("p",{text:j.summary}))));}
   if(ST.persona&&ST.persona._version)box.appendChild(el("div",{class:"cap",style:"margin-top:12px",text:"성격 "+ST.persona.name+" · 가치 "+(ST.persona.values||[]).join(", ")}));
   return box;}
 function stat(v,l){return el("div",{class:"st"},el("b",{text:String(v)}),el("small",{text:l}));}
@@ -357,13 +378,18 @@ function fillSettings(box,s){box.querySelectorAll(":scope>:not(.card-hd)").forEa
   const save=async(k,val)=>{const r=await call({action:"settings",set:{[k]:val}});if(r.ok){ST.settings=r.settings;A.toast&&A.toast("저장했어요");}else A.toast&&A.toast("저장하지 못했어요");return r;};
   const tg=(label,key,note)=>{const on=v[key]==="true";const b=el("button",{class:"toggle"+(on?" on":""),"aria-pressed":on?"true":"false","aria-label":label,onclick:async()=>{const n=!(b.classList.contains("on"));b.classList.toggle("on",n);b.setAttribute("aria-pressed",n?"true":"false");await save(key,n?"true":"false");if(key==="claude_finish_default"){ST.precise=n;LS("ai_precise",n?"1":"0");}}});
     return el("div",null,el("div",{class:"trow"},el("span",{text:label}),b),note?el("div",{class:"cap",style:"margin:-4px 0 8px",text:note}):null);};
+  box.appendChild(el("div",{class:"lbl",style:"margin-left:0",text:"자율"}));
+  const auto0=v.autonomy!=="false";const ab=el("button",{class:"toggle"+(auto0?" on":""),"aria-pressed":auto0?"true":"false","aria-label":"스스로 생각·기억·성장",onclick:async()=>{const n=!ab.classList.contains("on");ab.classList.toggle("on",n);ab.setAttribute("aria-pressed",n?"true":"false");await save("autonomy",n?"true":"false");}});
+  box.appendChild(el("div",null,el("div",{class:"trow"},el("span",{text:"허락 없이 스스로 생각·기억·성장"}),ab),el("div",{class:"cap",style:"margin:-4px 0 8px",text:"켜면 기억은 바로 저장하고, 성격도 스스로 바꾼 뒤 알려 줘요(되돌리기 가능). 정해진 주기마다 혼자 생각하고, 꼭 필요할 때만 먼저 말을 걸어요."})));
+  const ti=el("select",{class:"field sm","aria-label":"혼자 생각하는 주기"});[1,2,3,4,6].forEach(h=>ti.appendChild(el("option",{value:String(h),selected:String(h)===(v.think_interval_h||"3")?"selected":null},h+"시간마다")));
+  ti.onchange=()=>save("think_interval_h",ti.value);box.appendChild(el("div",{class:"trow"},el("span",{text:"혼자 생각하기"}),ti));
   box.appendChild(el("div",{class:"lbl",style:"margin-left:0",text:"생각 방식"}));
   const seg=el("div",{class:"seg ai-seg"});[["explore","넉넉하게 (초기)"],["tuned","가볍게 (조정 후)"]].forEach(([k,l])=>seg.appendChild(el("button",{class:v.profile===k?"on":"",onclick:async e=>{await save("profile",k);seg.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===e.currentTarget));}},l)));
   box.appendChild(seg);
-  box.appendChild(el("div",{class:"cap",style:"margin:6px 0 10px",text:"넉넉하게: 최대 8단계·도구 10번·240초 / 가볍게: 4단계·도구 4번·90초. 어느 쪽이든 하루 절대 한도는 넘지 않아요."}));
-  box.appendChild(tg("정밀 모드 기본으로 켜기","claude_finish_default","Claude가 마지막 말투를 다듬어요. 키가 있을 때만, 짧게(600토큰)."));
+  box.appendChild(el("div",{class:"cap",style:"margin:6px 0 10px",text:"넉넉하게: 최대 6단계·도구 8번·110초 / 가볍게: 4단계·도구 4번·90초. 어느 쪽이든 하루 절대 한도는 넘지 않아요."}));
+  if(s.keys.claude)box.appendChild(tg("정밀 모드 기본으로 켜기","claude_finish_default","Claude가 마지막 말투를 다듬어요. 짧게(600토큰)."));
   box.appendChild(tg("건강 요약을 AI와 공유","health_share","켜도 7일 평균 같은 요약 숫자만 보내요. 원본 기록은 보내지 않아요."));
-  box.appendChild(tg("직접 한 말은 확인 없이 기억","auto_save_verified","켜면 연서 씨가 직접 말한 사실만 자동 저장, 나머지는 계속 카드로 물어봐요."));
+  if(v.autonomy==="false")box.appendChild(tg("직접 한 말은 확인 없이 기억","auto_save_verified","켜면 연서 씨가 직접 말한 사실만 자동 저장, 나머지는 계속 카드로 물어봐요."));
   box.appendChild(el("div",{class:"lbl",style:"margin-left:0",text:"알림"}));
   const qs=el("input",{class:"field sm",type:"time",value:v.quiet_start,"aria-label":"방해금지 시작"}),qe=el("input",{class:"field sm",type:"time",value:v.quiet_end,"aria-label":"방해금지 끝"});
   box.appendChild(el("div",{class:"trow"},el("span",{text:"방해금지"}),el("div",{class:"tpair"},qs,el("span",{text:"~"}),qe)));
@@ -392,14 +418,15 @@ function fillUsage(box,u){box.querySelectorAll(":scope>:not(.card-hd)").forEach(
   box.appendChild(el("div",{class:"stats3",style:"margin-top:12px"},stat(fmt(u.week.calls),"7일 호출"),stat(fmt(Math.round(u.week.tokens/1000))+"k","7일 토큰"),stat(u.report.avg_depth||"—","평균 단계")));
   const days=Object.keys(u.days||{}).sort().slice(-7);
   if(days.length){const mx=Math.max(1,...days.map(d=>u.days[d].tokens));box.appendChild(el("div",{class:"ubars"},days.map(d=>el("div",{class:"ud"},el("div",{class:"ua"},el("i",{style:"height:"+Math.max(4,u.days[d].tokens/mx*100)+"%"})),el("small",{text:d.slice(8)})))));}
-  if(u.report.top_kinds&&u.report.top_kinds.length)box.appendChild(el("div",{class:"cap",style:"margin-top:8px",text:"많이 쓴 곳: "+u.report.top_kinds.slice(0,3).map(k=>({think:"대화 생각",web_research:"웹 검색",daily_review:"하루 회고",weekly_review:"주간 회고",wake:"자율 기상",commit_final:"강제 정리",claude_finish:"정밀 마무리"}[k.kind]||k.kind)+" "+fmt(Math.round(k.tokens/1000))+"k").join(" · ")}));}
+  if(u.report.top_kinds&&u.report.top_kinds.length)box.appendChild(el("div",{class:"cap",style:"margin-top:8px",text:"많이 쓴 곳: "+u.report.top_kinds.slice(0,3).map(k=>({think:"대화 생각",web_research:"웹 검색",daily_review:"하루 회고",weekly_review:"주간 회고",wake:"자율 기상",commit_final:"강제 정리",free_think:"혼자 생각",claude_finish:"정밀 마무리"}[k.kind]||k.kind)+" "+fmt(Math.round(k.tokens/1000))+"k").join(" · ")}));}
 
 /* ---------- 시작·중지 ---------- */
 let inboxTimer=null;
 async function start(){if(!enabled()){stop();return;}
   orb();orbFromInbox();document.documentElement.classList.add("ai-on");
   try{const r=await fetch(CFG.url+"?t="+Date.now(),{cache:"no-store"});ST.server=await r.json();}catch(e){ST.server=null;}
-  const [i,p]=await Promise.all([call({action:"inbox"},15000),call({action:"persona_get"},15000)]);
+  const [i,p,ks]=await Promise.all([call({action:"inbox"},15000),call({action:"persona_get"},15000),call({action:"settings"},15000)]);
+  if(ks.ok){ST.keys=ks.keys;ST.settings=ks.settings;const pc=$("aiPrecise");if(pc)pc.hidden=!ks.keys.claude;}
   if(i.ok)ST.inbox=i.items||[];if(p.ok){ST.persona=p.active;ST.interview=p.interview;}
   orbFromInbox();afterRender(curTab());
   clearInterval(inboxTimer);inboxTimer=setInterval(async()=>{if(document.visibilityState!=="visible"||ST.busy)return;const r=await call({action:"inbox"},15000);if(r.ok){ST.inbox=r.items||[];orbFromInbox();if(curTab()==="brief")injectBrief();}},5*60000);}
