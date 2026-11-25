@@ -69,6 +69,7 @@ function view(){let v=$("aiView");if(v)return v;
       el("div",{class:"ai-compose",id:"aiCompose"},
         el("div",{class:"ai-tools"},
           el("button",{class:"ai-chip"+(ST.precise?" on":""),id:"aiPrecise",hidden:!(ST.keys&&ST.keys.claude),"aria-pressed":ST.precise?"true":"false",onclick:togglePrecise},icon("check"),"정밀 모드"),
+          el("button",{class:"ai-chip"+(ST.deep?" on":""),id:"aiDeep","aria-pressed":ST.deep?"true":"false",onclick:toggleDeep},icon("spark"),"깊게 생각"),
           el("span",{class:"ai-hint",id:"aiHint",text:""})),
         el("div",{class:"ai-row"},
           el("button",{class:"ai-ib ai-mic",id:"aiMic","aria-label":"말로 하기",onclick:mic,html:SVG.mic}),
@@ -89,10 +90,12 @@ function view(){let v=$("aiView");if(v)return v;
   return v;}
 function openChat(prefill){if(!enabled()){location.hash="#me";setTimeout(()=>{const c=$("aiConnect");if(c)c.scrollIntoView({behavior:"smooth"});},200);return;}
   const v=view();ST.prevY=window.scrollY;ST.open=true;document.documentElement.classList.add("ai-open");v.classList.add("on");
+  [...document.body.children].forEach(c=>{if(c!==v&&c.tagName!=="SCRIPT"){c.inert=true;c.setAttribute("aria-hidden","true");}});
   renderLog();boot();renderSide();
   if(prefill){$("aiIn").value=prefill;}
   setTimeout(()=>{if(matchMedia("(hover:hover)").matches)$("aiIn").focus();},250);}
 function closeChat(){const v=$("aiView");if(!v)return;v.classList.remove("on");ST.open=false;document.documentElement.classList.remove("ai-open");
+  [...document.body.children].forEach(c=>{if(c!==v){c.inert=false;c.removeAttribute("aria-hidden");}});
   if("speechSynthesis" in window)speechSynthesis.cancel();window.scrollTo(0,ST.prevY);}   // 이전 탭·스크롤 복원
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&ST.open)closeChat();});
 
@@ -104,7 +107,7 @@ async function boot(){if(booted)return;booted=true;
   if(p.ok){ST.persona=p.active;ST.interview=p.interview;header();}
   else{booted=false;}
   if(h.ok&&h.turns&&h.turns.length){ST.sid=h.sessionId;LS("ai_sid",ST.sid);
-    ST.msgs=h.turns.map(t=>t.role==="user"?{t:"user",text:t.content}:{t:"ai",text:t.content,nodes:t.nodes});saveMsgs();}   // 서버가 원본 (S114)
+    ST.msgs=h.turns.filter(t=>!(t.kind==="error"&&(t.resolved===true||t.resolved==="TRUE"))).map(t=>t.role==="user"?{t:"user",text:t.content}:(t.kind==="error"?{t:"sys",kind:"err",text:t.content}:{t:"ai",text:t.content,nodes:t.nodes}));LS("ai_pending",null);saveMsgs();}   // 서버가 원본 (S114)
   if(p.ok&&p.interview&&!p.interview.done){startInterview(p.interview);}
   else if(!ST.msgs.length)ST.msgs.push({t:"empty"});
   if(!p.ok)ST.msgs.push({t:"sys",kind:"err",text:errText(p.error),retry:"boot"});
@@ -116,9 +119,14 @@ function startInterview(iv){ST.interview=iv;header();
 
 /* ---------- 메시지 렌더 (S104) ---------- */
 function saveMsgs(){LS("ai_msgs",JSON.stringify(ST.msgs.filter(m=>m.t!=="live"&&m.t!=="empty").slice(-30)));}
-function renderLog(){const log=$("aiLog");if(!log)return;log.textContent="";
+function atBottom(log){return log.scrollHeight-log.scrollTop-log.clientHeight<80;}
+function renderLog(force){const log=$("aiLog");if(!log)return;const stick=force||!log.childElementCount||atBottom(log);const y=log.scrollTop;log.textContent="";
   ST.msgs.forEach((m,i)=>log.appendChild(msgEl(m,i)));
-  requestAnimationFrame(()=>{log.scrollTop=log.scrollHeight;});}
+  requestAnimationFrame(()=>{if(stick){log.scrollTop=log.scrollHeight;newBtn(false);}else{log.scrollTop=y;newBtn(true);}});}
+function newBtn(show){let b=$("aiNew");const log=$("aiLog");if(!log)return;
+  if(!b){b=el("button",{id:"aiNew",class:"ai-new",onclick:()=>{log.scrollTop=log.scrollHeight;newBtn(false);},text:"새 메시지 ↓"});log.parentNode.insertBefore(b,log.nextSibling);
+    log.addEventListener("scroll",()=>{if(atBottom(log))newBtn(false);},{passive:true});}
+  b.hidden=!show;}
 function msgEl(m,i){
   if(m.t==="user")return el("div",{class:"bub me"},el("div",{class:"bx",text:m.text}));
   if(m.t==="empty")return emptyEl();
@@ -132,6 +140,7 @@ function msgEl(m,i){
     const bx=el("div",{class:"bx"},md(m.text));w.appendChild(bx);
     if(m.audit&&!m.audit.passed)w.appendChild(el("div",{class:"ai-warn"},icon("bell"),"답 속 숫자 "+m.audit.unverified.join(", ")+"은(는) 조회 결과에서 확인되지 않았어요. 확인 필요."));
     if(m.sources&&m.sources.length)w.appendChild(el("div",{class:"srcs"},el("small",{text:"출처"}),m.sources.map(s=>el("a",{href:s.url,target:"_blank",rel:"noopener noreferrer",text:(s.title||s.url).slice(0,40)}))));
+    if(m.deepHint&&m.q)w.appendChild(el("button",{class:"ai-btn ghost",onclick:()=>{m.deepHint="";send({input:m.q,deep:true,silent:true});},text:"더 깊게 볼까요? · "+m.deepHint}));
     if(m.cont)w.appendChild(el("button",{class:"ai-btn ghost",onclick:()=>send({input:"(이어서)",continue_token:m.cont,silent:true}),text:"이어서 생각하기"}));
     if(m.question)w.appendChild(questionCard({message:m.question,local:true}));
     (m.mems||[]).forEach(x=>w.appendChild(memCard(x)));
@@ -265,23 +274,30 @@ async function send(o){
   if(!ST.sid){ST.sid="s"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);LS("ai_sid",ST.sid);}
   ST.msgs=ST.msgs.filter(m=>m.t!=="empty");
   if(!o.silent)ST.msgs.push({t:"user",text:o.input});
-  const live={t:"live",doing:"생각을 시작했어요",nodes:[]};ST.msgs.push(live);renderLog();
+  const live={t:"live",doing:"생각을 시작했어요",nodes:[]};ST.msgs.push(live);renderLog(true);
   ST.busy=true;setOrb("thinking");$("aiSend").disabled=true;
   // 진행 폴링 1.5초 (S106)
   clearInterval(ST.poll);
   ST.poll=setInterval(async()=>{const p=await call({action:"poll",sessionId:ST.sid},8000);if(p.ok&&p.progress&&!p.progress.idle&&ST.busy){Object.assign(live,p.progress);renderLog();}},1500);
   const nBefore=await aiTurnCount();
-  const r0=await call({action:"chat",sessionId:ST.sid,input:o.input,precise:!!(ST.precise&&ST.keys&&ST.keys.claude),inputMode:o.inputMode||"text",outputMode:o.outputMode||"text",continue_token:o.continue_token||undefined},300000);
+  const deep=!!(o.deep||ST.deep);const tok=ST.reqTok=Date.now()+":"+Math.random();
+  ST.pending={input:o.input,nBefore:nBefore,at:Date.now(),tok:tok};LS("ai_pending",JSON.stringify({sid:ST.sid,at:Date.now()}));
+  const r0=await call({action:"chat",sessionId:ST.sid,input:o.input,deep:deep||undefined,precise:!!(ST.precise&&ST.keys&&ST.keys.claude),inputMode:o.inputMode||"text",outputMode:o.outputMode||"text",continue_token:o.continue_token||undefined},deep?300000:90000);
+  if(ST.reqTok!==tok)return;   // 복귀 복구가 먼저 답을 붙였으면 무시 (R15)
   // 2026-11-25: 아이폰이 긴 요청을 끊어도 서버는 끝까지 생각한다 → 대화 기록에서 답을 찾아 이어 붙인다
   let r=r0;
   if(!r.ok&&(r.error==="NETWORK"||r.error==="TIMEOUT")){live.doing="연결이 잠깐 끊겼어요. 답을 다시 받아오는 중…";renderLog();r=await recoverAnswer(o.input,nBefore)||r;}
+  if(ST.reqTok!==tok)return;
+  finishTurn(r,o,live);}
+function finishTurn(r,o,live){ST.reqTok=null;ST.pending=null;LS("ai_pending",null);
   clearInterval(ST.poll);ST.busy=false;$("aiSend").disabled=false;
-  ST.msgs=ST.msgs.filter(m=>m!==live);
+  ST.msgs=ST.msgs.filter(m=>m.t!=="live");
   if(!r.ok){ST.msgs.push({t:"sys",kind:"err",text:errText(r.error),retry:"send",payload:o});renderLog();orbFromInbox();return;}
   if(r.sessionId){ST.sid=r.sessionId;LS("ai_sid",ST.sid);}
   const f=r.final||{};
   const tools=(r.nodes||[]).filter(n=>n.tool).map(n=>({name:n.tool,ok:n.tool_ok}));
-  ST.msgs.push({t:"ai",text:f.reply_text||"",nodes:r.nodes,rootWhy:r.root_why,tools,cards:r.cards,sources:f.sources,question:f.proactive_question,mems:f.memory_candidates,persona:f.persona_proposal,audit:r.audit,cont:r.continue_token,voice:f.voice_script,finisher:r.finisher});
+  if(r.error_turn){ST.msgs.push({t:"sys",kind:"err",text:f.reply_text||errText(r.cause_code),retry:"send",payload:o,code:r.cause_code});saveMsgs();renderLog();orbFromInbox();return;}
+  ST.msgs.push({t:"ai",q:o.input,deepHint:r.deep_hint||"",text:f.reply_text||"",nodes:r.nodes,rootWhy:r.root_why,tools,cards:r.cards,sources:f.sources,question:f.proactive_question,mems:f.memory_candidates,persona:f.persona_proposal,audit:r.audit,cont:r.continue_token,voice:f.voice_script,finisher:r.finisher});
   if(f.persona_proposal&&f.persona_proposal.applied)refreshPersona();
   saveMsgs();renderLog();orbFromInbox();
   if(o.inputMode==="voice"&&f.voice_script)speak(f.voice_script);
@@ -294,8 +310,14 @@ async function recoverAnswer(input,nBefore){if(nBefore<0)return null;
     const ais=(h.turns||[]).filter(t=>t.role==="ai");
     if(ais.length>nBefore){const t=ais[ais.length-1];return{ok:true,sessionId:ST.sid,final:{reply_text:t.content,sources:[]},nodes:t.nodes||[],cards:[],recovered:true};}}
   return null;}
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&ST.fixVV)ST.fixVV();});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){if(ST.fixVV)ST.fixVV();resumeIfNeeded();}});
+window.addEventListener("pageshow",e=>{if(e.persisted)resumeIfNeeded();});
+let resuming=false;
+async function resumeIfNeeded(){const P=ST.pending;if(!P||!ST.busy||resuming||Date.now()-P.at<4000)return;resuming=true;
+  const live=ST.msgs.find(m=>m.t==="live");if(live){live.doing="연결이 잠시 끊겼어요. 이어서 불러오는 중…";renderLog();}
+  try{const r=await recoverAnswer(P.input,P.nBefore);if(r&&ST.pending===P){finishTurn(r,{input:P.input},live);}}finally{resuming=false;}}
 function retry(m,i){ST.msgs.splice(i,1);if(m.retry==="boot"){booted=false;boot();}else if(m.payload){const p=Object.assign({},m.payload,{silent:true});send(p);}renderLog();}
+function toggleDeep(){ST.deep=!ST.deep;const b=$("aiDeep");b.classList.toggle("on",ST.deep);b.setAttribute("aria-pressed",ST.deep?"true":"false");}
 function togglePrecise(){ST.precise=!ST.precise;LS("ai_precise",ST.precise?"1":"0");const b=$("aiPrecise");b.classList.toggle("on",ST.precise);b.setAttribute("aria-pressed",ST.precise?"true":"false");
   A.toast&&A.toast(ST.precise?"정밀 모드: 마지막 말투를 Claude가 다듬어요":"정밀 모드 끔");}
 
