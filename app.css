@@ -1116,3 +1116,23 @@ html.ai-open,html.ai-open body{overflow:hidden}
 /* v6 1단계: 새 메시지 버튼 (위로 읽는 중일 때) */
 .ai-new{position:relative;align-self:center;flex:none;margin-top:-44px;margin-bottom:8px;z-index:2;min-height:36px;padding:6px 14px;border-radius:999px;background:var(--ink);color:var(--bg);font-size:13px;font-weight:700;box-shadow:var(--shadow)}
 .ai-new[hidden]{display:none}
+/* v6 2~4단계: 스스로 바꾼 것 · 항공+숙박 · 특가 · 판매처 · 건강 요약 · 오브 */
+.pdiff{margin:8px 0 0;padding:8px 10px;border-radius:10px;background:var(--surface);font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-all;color:var(--sub)}
+.fstay{margin-top:10px;padding:12px;border-radius:14px;background:var(--surface)}
+.fsh{display:flex;align-items:center;gap:6px;font-size:14px;margin-bottom:6px}
+.fsr{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:6px 0;border-top:1px solid var(--line);font-size:13.5px}
+.fsr small{grid-column:1/-1;color:var(--sub);font-size:12px}
+.fhot{margin-top:6px}.fhot summary{min-height:44px;display:flex;align-items:center;font-weight:700;font-size:13.5px;color:var(--accent-ink);cursor:pointer}
+.hrow,.drow,.srow{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line);text-decoration:none;color:var(--ink)}
+.hrow>div:first-child,.drow>div:first-child{min-width:0}.hrow b,.drow b{display:block;font-size:14px}.hrow small,.drow small{color:var(--sub);font-size:12px;overflow-wrap:anywhere}
+.hp{text-align:right;flex:none}.hp b{display:block}.hp small{color:var(--sub);font-size:11.5px}.hp small.down{color:var(--up,#0a8f5c)}
+.drow{min-height:52px}
+.sellers{margin:8px 0;padding:8px 10px;border-radius:10px;background:var(--surface);font-size:13px}.sellers>b{display:block;margin-bottom:4px}
+.srow{padding:4px 0;font-size:13px}
+.ai-hb .hbt{margin:0;font-size:15px;line-height:1.65;word-break:keep-all}
+.ai-hb small{display:block;margin-top:8px}
+/* 오브가 카드를 가리지 않게: 작게, 스크롤 중엔 흐리게, 화면 아래 여백 확보 */
+.ai-orb{width:46px;height:46px;right:max(12px,calc(50% - 270px));transition:opacity .2s}
+html.ai-scrolling .ai-orb{opacity:.18;pointer-events:none}
+html.ai-on .view{padding-bottom:calc(150px + env(safe-area-inset-bottom))}
+.ai-hb{margin-bottom:16px}

@@ -98,6 +98,7 @@ function closeChat(){const v=$("aiView");if(!v)return;v.classList.remove("on");S
   [...document.body.children].forEach(c=>{if(c!==v){c.inert=false;c.removeAttribute("aria-hidden");}});
   if("speechSynthesis" in window)speechSynthesis.cancel();window.scrollTo(0,ST.prevY);}   // 이전 탭·스크롤 복원
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&ST.open)closeChat();});
+let scrT=null;window.addEventListener("scroll",()=>{document.documentElement.classList.add("ai-scrolling");clearTimeout(scrT);scrT=setTimeout(()=>document.documentElement.classList.remove("ai-scrolling"),700);},{passive:true});
 
 /* ---------- 첫 진입: 성격·인터뷰·기록 ---------- */
 let booted=false;
@@ -136,7 +137,7 @@ function msgEl(m,i){
   if(m.t==="ai"){const w=el("div",{class:"bub ai"});
     if(m.nodes&&m.nodes.length)w.appendChild(thoughts(m.nodes,m.rootWhy,false));
     if(m.tools&&m.tools.length)w.appendChild(el("div",{class:"tchips"},m.tools.map(t=>el("span",{class:"tchip"+(t.ok===false?" bad":"")},icon(TOOL_ICO[t.name]||"gear"),TOOL_KO[t.name]||t.name))));
-    (m.cards||[]).forEach(c=>{if(c.kind==="flight")w.appendChild(flightCard(c));});
+    (m.cards||[]).forEach(c=>{if(c.kind==="flight")w.appendChild(flightCard(c));if(c.kind==="deals")w.appendChild(dealsCard(c));});
     const bx=el("div",{class:"bx"},md(m.text));w.appendChild(bx);
     if(m.audit&&!m.audit.passed)w.appendChild(el("div",{class:"ai-warn"},icon("bell"),"답 속 숫자 "+m.audit.unverified.join(", ")+"은(는) 조회 결과에서 확인되지 않았어요. 확인 필요."));
     if(m.sources&&m.sources.length)w.appendChild(el("div",{class:"srcs"},el("small",{text:"출처"}),m.sources.map(s=>el("a",{href:s.url,target:"_blank",rel:"noopener noreferrer",text:(s.title||s.url).slice(0,40)}))));
@@ -186,16 +187,40 @@ function flightCard(c){const w=el("div",{class:"fcard"});
   const order=[P.pref_match,P.lowest,P.best_value,P.safe].filter(Boolean);
   const offers=(c.offers||[]).slice().sort((a,b)=>{const ia=order.indexOf(a.id),ib=order.indexOf(b.id);return(ia<0?99:ia)-(ib<0?99:ib)||a.total_krw-b.total_krw;});
   const list=el("div",{class:"flist"});
-  offers.slice(0,6).forEach(o=>list.appendChild(offerRow(o,tagOf(o.id))));
-  if(offers.length>6){const more=el("button",{class:"ai-lnk",text:"옵션 "+(offers.length-6)+"개 더 보기",onclick:()=>{offers.slice(6).forEach(o=>list.appendChild(offerRow(o,tagOf(o.id))));more.remove();}});w.appendChild(list);w.appendChild(more);}
+  const SV=c.sellers||{};
+  offers.slice(0,6).forEach(o=>list.appendChild(offerRow(o,tagOf(o.id),SV[o.id])));
+  if(offers.length>6){const more=el("button",{class:"ai-lnk",text:"옵션 "+(offers.length-6)+"개 더 보기",onclick:()=>{offers.slice(6).forEach(o=>list.appendChild(offerRow(o,tagOf(o.id),SV[o.id])));more.remove();}});w.appendChild(list);w.appendChild(more);}
   else w.appendChild(list);
+  if(c.stay)w.appendChild(stayBox(c.stay));
   if(c.mode==="manual"||c.mode==="error")w.appendChild(manualBox(c));
   if(c.meta)w.appendChild(el("small",{class:"fmeta",text:"스캔 "+c.meta.scanned+"건 · 조합 "+c.meta.shown+"개 · 제외 "+c.meta.discarded+"건 · 가격은 성인 1인 요금×인원, 결제 전 최종가 확인 필요"}));
   const acts=el("div",{class:"facts"});
   (c.links||[]).forEach(l=>acts.appendChild(el("a",{class:"ai-btn ghost",href:l.url,target:"_blank",rel:"noopener noreferrer"},icon("link"),l.label)));
   acts.appendChild(el("button",{class:"ai-btn ghost",onclick:async e=>{e.target.disabled=true;const r=await call({action:"flight_watch",op:"add",args:{destination:c.destination,depart:c.depart.date,return:c.return.date,adults:c.adults}});A.toast&&A.toast(r.ok?"가격 추적을 켰어요":"추적을 켜지 못했어요");}},icon("bell"),"가격 추적"));
   w.appendChild(acts);return w;}
-function offerRow(o,tags){const d=el("details",{class:"orow"});
+function stayBox(st){const b=el("div",{class:"fstay"});
+  b.appendChild(el("div",{class:"fsh"},icon("home"),el("b",{text:"항공만 vs 항공+숙박 ("+st.nights+"박)"})));
+  const row=(l,v,sub)=>el("div",{class:"fsr"},el("span",{text:l}),el("b",{text:v==null?"—":won(v)}),sub?el("small",{text:sub}):null);
+  b.appendChild(row("항공만 최저",st.flight_only_krw));
+  if(st.package_krw!=null)b.appendChild(row("추천 항공 + 가성비 숙소",st.package_krw,st.package_hotel||""));
+  if(st.cheapest_combo_krw!=null)b.appendChild(row("가장 싼 항공 + 가장 싼 숙소",st.cheapest_combo_krw,st.cheapest_hotel?st.cheapest_hotel.name:""));
+  const hl=el("details",{class:"fhot"});hl.appendChild(el("summary",{text:"숙소 "+(st.hotels||[]).length+"곳 보기"}));
+  (st.hotels||[]).forEach(h=>hl.appendChild(el("div",{class:"hrow"},el("div",null,el("b",{text:h.name}),el("small",{text:[h.rating?"평점 "+h.rating+(h.reviews?" ("+fmt(h.reviews)+")":""):"",h.stars?h.stars+"성급":"",(h.sites||[]).map(x=>x.source+" 1박 "+won(x.per_night_krw)).join(" · ")].filter(Boolean).join(" · ")})),
+    el("div",{class:"hp"},el("b",{text:won(h.total_krw)}),el("small",{text:(h.estimated?"추정 · ":"")+"1박 "+won(h.per_night_krw)})))));
+  if(st.google_link)hl.appendChild(el("a",{class:"ai-lnk",href:st.google_link,target:"_blank",rel:"noopener noreferrer",text:"Google 호텔에서 보기"}));
+  b.appendChild(hl);b.appendChild(el("small",{class:"fmeta",text:st.note||""}));return b;}
+function dealsCard(c){const w=el("div",{class:"fcard"});
+  w.appendChild(el("div",{class:"fhd"},icon("zap"),el("b",{text:c.year+"년 "+c.month+"월 특가 · "+c.origin+" 출발"})));
+  if(c.notice)w.appendChild(el("div",{class:"fnote"},icon("bell"),el("span",{text:c.notice})));
+  const list=el("div",{class:"flist"});
+  (c.deals||[]).forEach(d=>list.appendChild(el("a",{class:"drow",href:d.link||"#",target:"_blank",rel:"noopener noreferrer"},
+    el("div",null,el("b",{text:d.city+(d.country?" · "+d.country:"")}),el("small",{text:[(d.start||"").slice(5)+(d.end?"~"+d.end.slice(5):""),d.airline,d.stops===0?"직항":d.stops?"경유 "+d.stops:""].filter(Boolean).join(" · ")})),
+    el("div",{class:"hp"},el("b",{text:won(d.price_krw)}),d.discount_pct!=null&&d.discount_pct>0?el("small",{class:"down",text:"평소보다 "+d.discount_pct+"% ↓"}):null))));
+  w.appendChild(list);return w;}
+function sellerBox(sv){const b=el("div",{class:"sellers"});b.appendChild(el("b",{text:"판매처별 가격"+(sv.complete&&sv.verified_total_krw!=null?" · 확인된 총액 "+won(sv.verified_total_krw):"")}));
+  (sv.legs||[]).forEach(L=>{b.appendChild(el("small",{class:"cap",text:(L.dir==="out"?"가는 편 ":"오는 편 ")+L.flight_no}));(L.sellers||[]).forEach(x=>b.appendChild(el(x.link?"a":"div",{class:"srow",href:x.link||undefined,target:x.link?"_blank":undefined,rel:x.link?"noopener noreferrer":undefined},el("span",{text:x.name}),el("b",{text:won(x.price_krw)+" /1인"}))));});
+  return b;}
+function offerRow(o,tags,sv){const d=el("details",{class:"orow"});
   const leg=(L,lab)=>L?el("div",{class:"leg"},el("small",{text:lab}),el("b",{text:L.dep_hm+" → "+L.arr_hm}),el("span",{text:L.flight_no+" · "+L.block+(L.stops?" · 경유 "+L.stops:" · 직항")})):null;
   d.appendChild(el("summary",null,
     el("div",{class:"otop"},el("span",{class:"oid",text:o.id}),tags.map(t=>el("span",{class:"otag",text:t})),o.baggage_included===null?el("span",{class:"otag warn",text:"수하물 확인 필요"}):o.baggage_included===false?el("span",{class:"otag gray",text:"수하물 별도"}):null),
@@ -203,6 +228,7 @@ function offerRow(o,tags){const d=el("details",{class:"orow"});
       el("div",{class:"oprice"},el("b",{text:won(o.per_person_krw)}),el("small",{text:"1인 · 총 "+won(o.total_krw)})))));
   const det=el("div",{class:"odet"});
   det.appendChild(el("div",{class:"cap",text:o.carrier+" · 출처 "+o.source+(o.fetched_at?" · "+String(o.fetched_at).slice(5,16).replace("T"," ")+" 수집":"")}));
+  if(sv)det.appendChild(sellerBox(sv));
   if(o.badges&&o.badges.length)det.appendChild(el("div",{class:"obadges"},o.badges.map(b=>el("span",{class:"otag gray",text:b}))));
   const tb=el("div",{class:"rules"});(o.rules||[]).forEach(r=>tb.appendChild(el("div",{class:"rl "+r.result},el("span",{class:"rs",text:r.result==="pass"?"통과":r.result==="warn"?"주의":"탈락"}),el("b",{text:r.rule}),el("small",{text:r.why}))));
   det.appendChild(el("div",{class:"lbl2",text:"규칙 통과·탈락 사유"}));det.appendChild(tb);
@@ -248,10 +274,17 @@ function personaCard(p){const w=el("div",{class:"pcard per"});
 async function refreshPersona(){const p=await call({action:"persona_get"});if(p.ok){ST.persona=p.active;ST.interview=p.interview;header();}}
 /* 선제 질문 카드: [답하기][나중에][이 유형 그만] */
 function questionCard(it){const w=el("div",{class:"qcard"});
-  w.appendChild(el("div",{class:"phd"},icon(it.type==="price_drop"?"zap":it.type==="schedule"?"cal":"bell"),el("b",{text:it.local?"먼저 물어볼게요":"AI가 먼저 말을 걸었어요"}),it.created_at?el("small",{class:"cap",text:String(it.created_at).slice(5,16).replace("T"," ")}):null));
+  const ttl=it.local?"먼저 물어볼게요":it.type==="persona_changed"?"AI가 스스로 바꿨어요":it.type==="ai_thought"?"혼자 생각하다 떠오른 것":"AI가 먼저 말을 걸었어요";
+  w.appendChild(el("div",{class:"phd"},icon(it.type==="price_drop"?"zap":it.type==="schedule"?"cal":it.type==="persona_changed"||it.type==="ai_thought"?"spark":"bell"),el("b",{text:ttl}),it.created_at?el("small",{class:"cap",text:String(it.created_at).slice(5,16).replace("T"," ")}):null));
   w.appendChild(el("div",{class:"ptxt",text:it.message}));
   if(it.local){w.appendChild(el("div",{class:"pacts"},el("button",{class:"ai-btn",onclick:()=>{$("aiIn").focus();}},"답하기")));return w;}
   const done=txt=>{const a=w.querySelector(".pacts");a&&a.replaceWith(el("small",{class:"cap",text:txt}));ST.inbox=ST.inbox.filter(x=>x.id!==it.id);orbFromInbox();};
+  if(it.type==="persona_changed"){const pl=it.payload||{};
+    if(pl.diff)w.appendChild(el("pre",{class:"pdiff",text:String(pl.diff).slice(0,600)}));
+    w.appendChild(el("div",{class:"pacts"},
+      el("button",{class:"ai-btn ghost",onclick:async()=>{const r=await call({action:"persona_rollback",version:pl.prev_version||Math.max(1,(pl.version||2)-1)});await call({action:"inbox_act",id:it.id,act:"done"});done(r.ok?"이전 성격으로 되돌렸어요":"되돌리지 못했어요");if(r.ok)refreshPersona();}},"되돌리기"),
+      el("button",{class:"ai-btn",onclick:async()=>{await call({action:"inbox_act",id:it.id,act:"done"});done("좋아요, 그대로 둘게요");}},"좋아요")));
+    return w;}
   w.appendChild(el("div",{class:"pacts"},
     el("button",{class:"ai-btn",onclick:()=>{call({action:"inbox_act",id:it.id,act:"done"});done("대화로 이어가요");openChat("(알림에 대한 답) "+it.message+"\n→ ");}},"답하기"),
     el("button",{class:"ai-btn ghost",onclick:async()=>{await call({action:"inbox_act",id:it.id,act:"later"});done("나중에 다시 볼게요");}},"나중에"),
@@ -357,6 +390,17 @@ function openPanel(){const box=el("div");box.appendChild(sideContent());
 function injectHome(){const v=$("v-home");if(!v||!enabled())return;
   const q=v.querySelector(".hero.quote")||v.querySelector(".hero");
   const old=q&&q.querySelector(".ai-ask");if(old)old.remove();if(q)q.appendChild(el("button",{class:"ai-ask",onclick:()=>openChat()},el("span",{class:"mini-orb"}),el("span",{text:(ST.persona&&ST.persona.name?ST.persona.name+"에게":"AI에게")+" 이야기하기"}),icon("chev")));}
+let hbrief=null;
+async function injectHealth(force){const v=$("v-health");if(!v||!enabled())return;
+  const old=$("aiHealthBrief");if(old)old.remove();
+  const card=el("div",{class:"card ai-hb",id:"aiHealthBrief"},el("div",{class:"card-hd",html:ico("spark","c-accent")+"<h3>오늘 몸 상태 · AI 요약</h3>"}));
+  const body=el("p",{class:"hbt",text:hbrief&&!force?hbrief.text:"기록을 읽는 중…"});card.appendChild(body);
+  const sub=v.querySelector(".page-sub");sub?sub.after(card):v.prepend(card);
+  if(hbrief&&!force&&hbrief.text)return;
+  const r=await call({action:"health_brief",force:!!force},40000);
+  if(r.ok&&r.text){hbrief=r;body.textContent=r.text;card.appendChild(el("small",{class:"cap",text:"수면·걸음·심박·앱 기록을 코드가 계산한 값으로 요약 · 진단이 아니에요"}));}
+  else if(r.ok&&r.share_off){body.textContent="건강 데이터 공유가 꺼져 있어서 요약하지 않았어요. 내 정보 > AI 설정에서 켤 수 있어요.";}
+  else body.textContent="지금은 요약을 만들지 못했어요("+(r.error||"오류")+"). 잠시 뒤 다시 열어 주세요.";}
 function injectBrief(){const v=$("v-brief");if(!v||!enabled())return;
   const old=$("aiBriefTop");if(old)old.remove();
   const items=ST.inbox.filter(x=>x.status==="NEW"||x.status==="SEEN").slice(0,3);
@@ -438,6 +482,7 @@ function fillUsage(box,u){box.querySelectorAll(":scope>:not(.card-hd)").forEach(
   box.appendChild(bar("오늘 호출",T.counter_calls,L.calls,T.pct_calls));
   box.appendChild(bar("오늘 토큰",T.counter_tokens,L.tokens,T.pct_tokens));
   box.appendChild(el("div",{class:"stats3",style:"margin-top:12px"},stat(fmt(u.week.calls),"7일 호출"),stat(fmt(Math.round(u.week.tokens/1000))+"k","7일 토큰"),stat(u.report.avg_depth||"—","평균 단계")));
+  if(u.report.by_path)box.appendChild(el("div",{class:"cap",style:"margin-top:8px",text:u.report.by_path.map(x=>(x.path==="fast"?"빠른 대화":"깊게 생각")+" "+x.calls+"번 · 평균 "+(x.avg_ms/1000).toFixed(1)+"초").join(" / ")+(u.report.autonomy_tokens_today!=null?" · 오늘 혼자 생각 "+fmt(Math.round(u.report.autonomy_tokens_today/1000))+"k 토큰":"")}));
   const days=Object.keys(u.days||{}).sort().slice(-7);
   if(days.length){const mx=Math.max(1,...days.map(d=>u.days[d].tokens));box.appendChild(el("div",{class:"ubars"},days.map(d=>el("div",{class:"ud"},el("div",{class:"ua"},el("i",{style:"height:"+Math.max(4,u.days[d].tokens/mx*100)+"%"})),el("small",{text:d.slice(8)})))));}
   if(u.report.top_kinds&&u.report.top_kinds.length)box.appendChild(el("div",{class:"cap",style:"margin-top:8px",text:"많이 쓴 곳: "+u.report.top_kinds.slice(0,3).map(k=>({think:"대화 생각",web_research:"웹 검색",daily_review:"하루 회고",weekly_review:"주간 회고",wake:"자율 기상",commit_final:"강제 정리",free_think:"혼자 생각",claude_finish:"정밀 마무리"}[k.kind]||k.kind)+" "+fmt(Math.round(k.tokens/1000))+"k").join(" · ")}));}
@@ -455,7 +500,7 @@ async function start(){if(!enabled()){stop();return;}
 function stop(){clearInterval(inboxTimer);const o=$("aiOrb");if(o)o.remove();const v=$("aiView");if(v)v.remove();document.documentElement.classList.remove("ai-on","ai-open");
   ["aiBriefTop"].forEach(id=>{const x=$(id);if(x)x.remove();});document.querySelectorAll(".ai-ask").forEach(x=>x.remove());booted=false;}
 const curTab=()=>{const t=(location.hash||"").replace("#","");return t||"home";};
-function afterRender(t){try{if(t==="me")injectMe();if(!enabled())return;if(t==="home")injectHome();if(t==="brief")injectBrief();}catch(e){/* AI 쪽 오류는 앱을 막지 않음 (S008) */}}
+function afterRender(t){try{if(t==="me")injectMe();if(!enabled())return;if(t==="home")injectHome();if(t==="brief")injectBrief();if(t==="health")injectHealth();}catch(e){/* AI 쪽 오류는 앱을 막지 않음 (S008) */}}
 window.AIP={afterRender,open:openChat,sendUserTurn,_st:ST};
 if(enabled())start();else afterRender(curTab());
 })();
