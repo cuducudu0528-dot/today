@@ -3,7 +3,7 @@
    점수 계산식: docs/scoring.md 와 아래 SCORE 모듈이 같아야 한다. */
 (function(){
 "use strict";
-const APP_VER="2026-11-25-5";
+const APP_VER="2026-11-25-7";
 const DEF_URL="https://script.google.com/macros/s/AKfycbxgoPMdod-SPlKH4gcsmEH5bg1GVYMmRDgropKc4qbqLEBAKAQlR95xIzrz75Zfh2o9dg/exec";
 const WEEK=["일","월","화","수","목","금","토"];
 const COND=[[1,"😫","지침"],[2,"😮‍💨","피곤"],[3,"🙂","보통"],[4,"😊","좋음"],[5,"🤩","최고"]];
@@ -758,7 +758,7 @@ async function flush(){
   if(saving){clearTimeout(saveTimer);saveTimer=setTimeout(flush,500);return;}
   saving=true;dirty=false;const body=Object.assign({},today,{workout:today.workout.slice(),condition:today.condition.length?today.condition.join(","):null,mood:today.mood.join(","),supplement:today.supplement.length?today.supplement.join(","):"FALSE",alcohol:serAlc(today.alcohol)});
   try{const res=await apiPost({action:"saveDay",day:body});
-    if(res&&res.ok){setSaved("✓ 저장됨 · "+hhmm(new Date()));S.days[TODAY]=body;const n=$("savedNote");if(n){n.classList.remove("pop");void n.offsetWidth;n.classList.add("pop");}}
+    if(res&&res.ok){setSaved("✓ 저장됨 · "+hhmm(new Date()));S.days[TODAY]=body;try{window.__aiDayFix&&window.__aiDayFix(body);}catch(e){}const n=$("savedNote");if(n){n.classList.remove("pop");void n.offsetWidth;n.classList.add("pop");}}
     else{setSaved(res&&res.error==="key"?"비밀번호가 맞지 않아요":"저장하지 못했어요");dirty=true;}
   }catch(err){setSaved("연결이 안 돼요 · 곧 다시 저장할게요");dirty=true;setTimeout(()=>{if(dirty)flush();},5000);}
   saving=false;

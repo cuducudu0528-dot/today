@@ -51,6 +51,13 @@ const ERR={NOT_CONNECTED:"AI 서버가 연결되지 않았어요. 내 정보에�
   GEMINI_RATE_LIMIT:"Gemini 요청이 잠시 몰렸어요. 1분 뒤 다시 보내 주세요.",SERVER_ERROR:"AI 서버에서 오류가 났어요. 다시 시도해 주세요.",EMPTY_INPUT:"보낼 내용이 비어 있어요."};
 const errText=e=>ERR[e]||("문제가 생겼어요("+e+"). 다시 시도해 주세요.");
 
+/* ---------- 앱 기록 보정 (2026-11-25(3)) ----------
+   기록 서버가 영양제·술을 TRUE/FALSE로 바꿔 저장해 버리는 문제 → 저장 직후 원래 값(이름·잔 수)을 다시 써 넣는다 */
+let dayFixT=null;
+window.__aiDayFix=function(day){if(!enabled()||!day||!day.date)return;clearTimeout(dayFixT);
+  const body={action:"day_fix",date:day.date,supplement:String(day.supplement==null?"":day.supplement),alcohol:String(day.alcohol==null?"":day.alcohol)};
+  dayFixT=setTimeout(()=>{call(body,15000);},400);};
+
 /* ---------- 존재감 오브 (S103) ---------- */
 function orb(){let o=$("aiOrb");if(!o){o=el("button",{id:"aiOrb",class:"ai-orb","aria-label":"AI 파트너 열기",onclick:()=>openChat()},el("span",{class:"core",html:A.mark||""}),el("span",{class:"pip"}));document.body.appendChild(o);}return o;}
 function setOrb(state){const o=orb();o.dataset.state=state;o.setAttribute("aria-label","AI 파트너 열기 · "+({idle:"쉬는 중",thinking:"생각 중",waking:"할 말이 있어요"}[state]||""));}
@@ -81,12 +88,22 @@ function view(){let v=$("aiView");if(v)return v;
   ta.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing&&matchMedia("(hover:hover)").matches){e.preventDefault();sendFromBox();}});
   // 키보드가 올라오면 visualViewport로 입력창 위치 보정 (S108)
   // 2026-11-25: 화면 전체를 '보이는 영역'에 맞춘다(아이폰 키보드가 올라오면 대화창 높이를 줄이고, 뒤 화면이 비치지 않게)
-  if(window.visualViewport){const fix=()=>{const vv=window.visualViewport;const kbOpen=window.innerHeight-vv.height>120;
-      v.style.top=vv.offsetTop+"px";v.style.height=vv.height+"px";v.style.bottom="auto";v.classList.toggle("kb",kbOpen);
-      if(kbOpen){const lg=$("aiLog");if(lg)lg.scrollTop=lg.scrollHeight;}
+  // 2026-11-25(2): 아이패드 하단 단축키 막대(외장·플로팅 키보드)가 입력창을 가리는 문제 보정 —
+  //  보이는 영역이 거의 안 줄었는데 입력 중이면, 막대 높이만큼 입력창을 위로 띄운다.
+  const isPad=/iPad/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+  const fix=()=>{const vv=window.visualViewport;const focused=document.activeElement===ta;
+      const H=vv?vv.height:window.innerHeight,T=vv?vv.offsetTop:0;
+      const gap=Math.max(0,(window.innerHeight||H)-H-T);const kbOpen=gap>120;
+      v.style.top=T+"px";v.style.height=H+"px";v.style.bottom="auto";v.classList.toggle("kb",kbOpen||focused);
+      v.style.setProperty("--kbx",(focused&&isPad&&gap<60)?"64px":"0px");
+      if(focused){const lg=$("aiLog");if(lg)lg.scrollTop=lg.scrollHeight;}
       if(window.scrollY!==ST.prevY&&document.documentElement.classList.contains("ai-open"))window.scrollTo(0,ST.prevY);};
-    visualViewport.addEventListener("resize",fix);visualViewport.addEventListener("scroll",fix);ST.fixVV=fix;fix();}
-  ta.addEventListener("focus",()=>setTimeout(()=>{ST.fixVV&&ST.fixVV();const lg=$("aiLog");if(lg)lg.scrollTop=lg.scrollHeight;},300));
+  if(window.visualViewport){visualViewport.addEventListener("resize",fix);visualViewport.addEventListener("scroll",fix);}
+  window.addEventListener("resize",fix);ST.fixVV=fix;fix();
+  const refix=()=>{fix();setTimeout(fix,120);setTimeout(fix,350);setTimeout(fix,700);};
+  ta.addEventListener("focus",refix);ta.addEventListener("blur",()=>setTimeout(fix,80));
+  // 글이 길어져도 커서가 있는 줄이 보이게
+  ta.addEventListener("input",()=>{if(ta.selectionEnd===ta.value.length)ta.scrollTop=ta.scrollHeight;});
   return v;}
 function openChat(prefill){if(!enabled()){location.hash="#me";setTimeout(()=>{const c=$("aiConnect");if(c)c.scrollIntoView({behavior:"smooth"});},200);return;}
   const v=view();ST.prevY=window.scrollY;ST.open=true;document.documentElement.classList.add("ai-open");v.classList.add("on");
@@ -108,11 +125,24 @@ async function boot(){if(booted)return;booted=true;
   if(p.ok){ST.persona=p.active;ST.interview=p.interview;header();}
   else{booted=false;}
   if(h.ok&&h.turns&&h.turns.length){ST.sid=h.sessionId;LS("ai_sid",ST.sid);
-    ST.msgs=h.turns.filter(t=>!(t.kind==="error"&&(t.resolved===true||t.resolved==="TRUE"))).map(t=>t.role==="user"?{t:"user",text:t.content}:(t.kind==="error"?{t:"sys",kind:"err",text:t.content}:{t:"ai",text:t.content,nodes:t.nodes}));LS("ai_pending",null);saveMsgs();}   // 서버가 원본 (S114)
+    ST.msgs=h.turns.filter(t=>!(t.kind==="error"&&(t.resolved===true||t.resolved==="TRUE"))).map(t=>t.role==="user"?{t:"user",text:t.content}:(t.kind==="error"?{t:"sys",kind:"err",text:t.content}:{t:"ai",text:t.content,nodes:t.nodes}));saveMsgs();}   // 서버가 원본 (S114)
+  resumeAfterRelaunch(h.ok?(h.turns||[]):null);
   if(p.ok&&p.interview&&!p.interview.done){startInterview(p.interview);}
   else if(!ST.msgs.length)ST.msgs.push({t:"empty"});
   if(!p.ok)ST.msgs.push({t:"sys",kind:"err",text:errText(p.error),retry:"boot"});
   renderLog();}
+/* 앱이 완전히 꺼졌다 다시 켜진 경우: 저장해 둔 '답 기다리는 중'을 이어받는다 */
+function resumeAfterRelaunch(turns){let P=null;try{P=JSON.parse(LS("ai_pending")||"null");}catch(e){}
+  if(!P||!P.input||ST.busy){return;}
+  if(Date.now()-P.at>15*60000||(P.sid&&ST.sid&&P.sid!==ST.sid)){LS("ai_pending",null);return;}
+  if(turns){const t=pickAnswer(turns,P.input,P.nBefore);if(t){LS("ai_pending",null);return;}}   // 이미 기록에 답이 있음
+  ST.msgs=ST.msgs.filter(m=>m.t!=="empty");
+  const last=ST.msgs[ST.msgs.length-1];if(!(last&&last.t==="user"&&last.text===P.input))ST.msgs.push({t:"user",text:P.input});
+  const live={t:"live",doing:"앱을 나가 있는 동안에도 생각은 계속하고 있었어요. 답을 불러오는 중…",nodes:[]};ST.msgs.push(live);renderLog(true);
+  ST.busy=true;setOrb("thinking");const sb=$("aiSend");if(sb)sb.disabled=true;
+  const tok=ST.reqTok=Date.now()+":r";ST.pending={input:P.input,nBefore:P.nBefore,at:P.at,tok:tok,mode:P.mode};
+  recoverAnswer(P.input,P.nBefore,true).then(r=>{if(ST.reqTok!==tok)return;
+    finishTurn(r||{ok:false,error:"TIMEOUT"},{input:P.input,outputMode:P.mode},live);});}
 function header(){const P=ST.persona||{};$("aiName").textContent=P.name||"AI 파트너";$("aiSub").textContent=(P._version?"성격 v"+P._version:"아직 성격을 만들기 전")+(ST.interview&&!ST.interview.done?" · 첫 인터뷰 중":"");}
 function startInterview(iv){ST.interview=iv;header();
   if(!ST.msgs.some(m=>m.t==="ai"&&m.interviewQ===iv.step))ST.msgs.push({t:"sys",kind:"info",text:"처음이라 저를 함께 만들어 볼게요. 질문 "+iv.total+"개, 한 번에 하나씩이에요. 중간에 나가도 이어서 할 수 있어요."},{t:"ai",text:iv.question,interviewQ:iv.step});
@@ -314,7 +344,7 @@ async function send(o){
   ST.poll=setInterval(async()=>{const p=await call({action:"poll",sessionId:ST.sid},8000);if(p.ok&&p.progress&&!p.progress.idle&&ST.busy){Object.assign(live,p.progress);renderLog();}},1500);
   const nBefore=await aiTurnCount();
   const deep=!!(o.deep||ST.deep);const tok=ST.reqTok=Date.now()+":"+Math.random();
-  ST.pending={input:o.input,nBefore:nBefore,at:Date.now(),tok:tok};LS("ai_pending",JSON.stringify({sid:ST.sid,at:Date.now()}));
+  ST.pending={input:o.input,nBefore:nBefore,at:Date.now(),tok:tok};LS("ai_pending",JSON.stringify({sid:ST.sid,at:Date.now(),input:o.input,nBefore:nBefore,mode:o.outputMode||"text"}));saveMsgs();
   const r0=await call({action:"chat",sessionId:ST.sid,input:o.input,deep:deep||undefined,precise:!!(ST.precise&&ST.keys&&ST.keys.claude),inputMode:o.inputMode||"text",outputMode:o.outputMode||"text",continue_token:o.continue_token||undefined},deep?300000:90000);
   if(ST.reqTok!==tok)return;   // 복귀 복구가 먼저 답을 붙였으면 무시 (R15)
   // 2026-11-25: 아이폰이 긴 요청을 끊어도 서버는 끝까지 생각한다 → 대화 기록에서 답을 찾아 이어 붙인다
@@ -336,19 +366,25 @@ function finishTurn(r,o,live){ST.reqTok=null;ST.pending=null;LS("ai_pending",nul
   if(o.inputMode==="voice"&&f.voice_script)speak(f.voice_script);
   if(r.usage&&r.usage.today)ST.usageToday=r.usage.today;}
 async function aiTurnCount(){if(!ST.sid)return 0;const h=await call({action:"history",sessionId:ST.sid,limit:60},10000);return h.ok?(h.turns||[]).filter(t=>t.role==="ai").length:-1;}
-async function recoverAnswer(input,nBefore){if(nBefore<0)return null;
-  for(let i=0;i<40;i++){await new Promise(res=>setTimeout(res,i<3?4000:8000));
+/* 2026-11-25(3): 앱을 나갔다 와도(완전히 꺼졌다 켜져도) 서버가 끝낸 답을 대화 기록에서 찾아 붙인다 */
+function pickAnswer(turns,input,nBefore){const ais=turns.filter(t=>t.role==="ai");
+  if(nBefore>=0&&ais.length>nBefore){const t=ais[ais.length-1];return t;}
+  for(let i=turns.length-2;i>=0;i--){if(turns[i].role==="user"&&String(turns[i].content).trim()===String(input).trim()&&turns[i+1]&&turns[i+1].role==="ai")return turns[i+1];}
+  return null;}
+async function recoverAnswer(input,nBefore,first){
+  for(let i=0;i<60;i++){await new Promise(res=>setTimeout(res,first&&i===0?300:(i<3?4000:8000)));
     if(navigator.onLine===false)continue;
-    const h=await call({action:"history",sessionId:ST.sid,limit:60},10000);if(!h.ok)continue;
-    const ais=(h.turns||[]).filter(t=>t.role==="ai");
-    if(ais.length>nBefore){const t=ais[ais.length-1];return{ok:true,sessionId:ST.sid,final:{reply_text:t.content,sources:[]},nodes:t.nodes||[],cards:[],recovered:true};}}
+    const h=await call({action:"history",sessionId:ST.sid,limit:60},12000);if(!h.ok)continue;
+    const t=pickAnswer(h.turns||[],input,nBefore);
+    if(t){if(t.kind==="error")return{ok:true,error_turn:true,cause_code:"",final:{reply_text:t.content}};
+      return{ok:true,sessionId:ST.sid,final:{reply_text:t.content,sources:[]},nodes:t.nodes||[],cards:[],recovered:true};}}
   return null;}
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){if(ST.fixVV)ST.fixVV();resumeIfNeeded();}});
 window.addEventListener("pageshow",e=>{if(e.persisted)resumeIfNeeded();});
 let resuming=false;
-async function resumeIfNeeded(){const P=ST.pending;if(!P||!ST.busy||resuming||Date.now()-P.at<4000)return;resuming=true;
+async function resumeIfNeeded(){const P=ST.pending;if(!P||!ST.busy||resuming||Date.now()-P.at<1500)return;resuming=true;
   const live=ST.msgs.find(m=>m.t==="live");if(live){live.doing="연결이 잠시 끊겼어요. 이어서 불러오는 중…";renderLog();}
-  try{const r=await recoverAnswer(P.input,P.nBefore);if(r&&ST.pending===P){finishTurn(r,{input:P.input},live);}}finally{resuming=false;}}
+  try{const r=await recoverAnswer(P.input,P.nBefore,true);if(r&&ST.pending===P){finishTurn(r,{input:P.input,outputMode:P.mode},live);}}finally{resuming=false;}}
 function retry(m,i){ST.msgs.splice(i,1);if(m.retry==="boot"){booted=false;boot();}else if(m.payload){const p=Object.assign({},m.payload,{silent:true});send(p);}renderLog();}
 function toggleDeep(){ST.deep=!ST.deep;const b=$("aiDeep");b.classList.toggle("on",ST.deep);b.setAttribute("aria-pressed",ST.deep?"true":"false");}
 function togglePrecise(){ST.precise=!ST.precise;LS("ai_precise",ST.precise?"1":"0");const b=$("aiPrecise");b.classList.toggle("on",ST.precise);b.setAttribute("aria-pressed",ST.precise?"true":"false");
