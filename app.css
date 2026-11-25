@@ -1238,4 +1238,8 @@ body::after{display:none!important}
 .orbbig{background:none!important;box-shadow:none!important}
 .fab,[data-theme="dark"] .fab{background:var(--ink)!important;color:var(--bg)!important;box-shadow:0 10px 24px -14px rgba(27,28,33,.6)!important}
 .toggle.on{background:var(--sage)!important}
+/* 2026-11-26 KORA가 먼저 건넨 말 */
+.bub.ai.pro .bx{box-shadow:inset 3px 0 0 var(--accent),var(--shadow)}
+.bub.ai.pro .ai-tag{margin:0 0 4px 4px}
+.ai-view{will-change:transform}
 /* ===== 노치 보호 (2026-11-22-7 · 2026-11-25 KORA: 배경 단색) — 이 블록은 항상 파일 맨 끝에 둘 것 ===== body::before = 상태바(노치) 가림막 전용. 배경은 html에만 그린다. 디자인 바꿀 때 body::before를 배경으로 쓰지 말 것. */ :root{--sat:env(safe-area-inset-top,0px)} html{background:var(--bg)} body{background:transparent} body::before{content:""!important;position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:auto!important; height:var(--sat)!important;background:var(--bg)!important;z-index:60!important;pointer-events:none!important;display:block!important} .wrap{padding-top:calc(var(--sat) + var(--sp-2))!important} .toast{top:calc(var(--sat) + 12px)} #ptr{padding-top:calc(var(--sat) + 8px)}

@@ -3,7 +3,7 @@
    점수 계산식: docs/scoring.md 와 아래 SCORE 모듈이 같아야 한다. */
 (function(){
 "use strict";
-const APP_VER="2026-11-25-7";
+const APP_VER="2026-11-26-1";
 const DEF_URL="https://script.google.com/macros/s/AKfycbxgoPMdod-SPlKH4gcsmEH5bg1GVYMmRDgropKc4qbqLEBAKAQlR95xIzrz75Zfh2o9dg/exec";
 const WEEK=["일","월","화","수","목","금","토"];
 const COND=[[1,"😫","지침"],[2,"😮‍💨","피곤"],[3,"🙂","보통"],[4,"😊","좋음"],[5,"🤩","최고"]];
@@ -793,7 +793,7 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 window.addEventListener("pageshow",e=>{if(e.persisted)wake();});
 window.addEventListener("online",wake);
 (()=>{const ptr=document.createElement("div");ptr.id="ptr";ptr.textContent="↓ 당겨서 새로고침";document.body.appendChild(ptr);let y0=null,dy=0;
-  window.addEventListener("touchstart",e=>{if(window.scrollY<=0&&e.touches.length===1&&!$("sheet").classList.contains("on")){y0=e.touches[0].clientY;dy=0;}else y0=null;},{passive:true});
+  window.addEventListener("touchstart",e=>{if(window.scrollY<=0&&e.touches.length===1&&!$("sheet").classList.contains("on")&&!document.documentElement.classList.contains("ai-open")){y0=e.touches[0].clientY;dy=0;}else y0=null;},{passive:true});
   window.addEventListener("touchmove",e=>{if(y0===null)return;dy=e.touches[0].clientY-y0;if(dy>0){ptr.style.transform="translateY("+Math.min(dy/2-70,10)+"px)";ptr.textContent=dy>110?"↻ 놓으면 새로고침":"↓ 당겨서 새로고침";}},{passive:true});
   window.addEventListener("touchend",()=>{if(y0!==null&&dy>110){ptr.textContent="불러오는 중…";load(true).then(()=>{ptr.style.transform="translateY(-70px)";});checkUpdate();}else ptr.style.transform="translateY(-70px)";y0=null;dy=0;});})();
 (()=>{let y0=null;const s=$("sheet");

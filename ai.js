@@ -101,7 +101,14 @@ function view(){let v=$("aiView");if(v)return v;
   if(window.visualViewport){visualViewport.addEventListener("resize",fix);visualViewport.addEventListener("scroll",fix);}
   window.addEventListener("resize",fix);ST.fixVV=fix;fix();
   const refix=()=>{fix();setTimeout(fix,120);setTimeout(fix,350);setTimeout(fix,700);};
-  ta.addEventListener("focus",refix);ta.addEventListener("blur",()=>setTimeout(fix,80));
+  ta.addEventListener("focus",refix);
+  // 2026-11-26: 위쪽(머리)이나 맨 위까지 올린 대화에서 아래로 쓸어내리면 닫힌다. 덜 쓸면 제자리로.
+  (function(){let y0=null,x0=0,dy=0,lock=false;const lg=$("aiLog"),hd=v.querySelector(".ai-hd");
+    const start=e=>{if(e.touches.length!==1||document.activeElement===ta){y0=null;return;}const onHd=hd.contains(e.target);if(!onHd&&lg.scrollTop>2){y0=null;return;}y0=e.touches[0].clientY;x0=e.touches[0].clientX;dy=0;lock=false;};
+    const move=e=>{if(y0===null)return;dy=e.touches[0].clientY-y0;const dx=Math.abs(e.touches[0].clientX-x0);if(!lock){if(dx>Math.abs(dy)||dy<0){y0=null;return;}if(dy>8)lock=true;else return;}
+      if(e.cancelable)e.preventDefault();v.style.transition="none";v.style.transform="translateY("+Math.max(0,dy)+"px)";};
+    const end=()=>{if(y0===null)return;v.style.transition="";if(lock&&dy>120){v.style.transform="";closeChat();}else v.style.transform="";y0=null;lock=false;};
+    v.addEventListener("touchstart",start,{passive:true});v.addEventListener("touchmove",move,{passive:false});v.addEventListener("touchend",end,{passive:true});v.addEventListener("touchcancel",end,{passive:true});})();ta.addEventListener("blur",()=>setTimeout(fix,80));
   // 글이 길어져도 커서가 있는 줄이 보이게
   ta.addEventListener("input",()=>{if(ta.selectionEnd===ta.value.length)ta.scrollTop=ta.scrollHeight;});
   return v;}
@@ -121,15 +128,18 @@ let scrT=null;window.addEventListener("scroll",()=>{document.documentElement.cla
 let booted=false;
 async function boot(){if(booted)return;booted=true;
   const cached=JSON.parse(LS("ai_msgs")||"[]");if(cached.length&&!ST.msgs.length){ST.msgs=cached;renderLog();}
-  const [p,h]=await Promise.all([call({action:"persona_get"}),call({action:"history",sessionId:ST.sid,limit:30})]);
+  let [p,h]=await Promise.all([call({action:"persona_get"},15000),call({action:"history",sessionId:ST.sid,limit:30},15000)]);
+  if(!p.ok&&/NETWORK|TIMEOUT/.test(p.error||""))p=await call({action:"persona_get"},20000);   // 2026-11-26: 열 때 잠깐 끊긴 걸 오류로 띄우지 않음
+  if(!h.ok&&/NETWORK|TIMEOUT/.test(h.error||""))h=await call({action:"history",sessionId:ST.sid,limit:30},20000);
   if(p.ok){ST.persona=p.active;ST.interview=p.interview;header();}
   else{booted=false;}
   if(h.ok&&h.turns&&h.turns.length){ST.sid=h.sessionId;LS("ai_sid",ST.sid);
-    ST.msgs=h.turns.filter(t=>!(t.kind==="error"&&(t.resolved===true||t.resolved==="TRUE"))).map(t=>t.role==="user"?{t:"user",text:t.content}:(t.kind==="error"?{t:"sys",kind:"err",text:t.content}:{t:"ai",text:t.content,nodes:t.nodes}));saveMsgs();}   // 서버가 원본 (S114)
+    const T=h.turns,lastI=T.length-1;
+    ST.msgs=T.filter((t,i)=>!(t.kind==="error"&&(t.resolved===true||t.resolved==="TRUE"||i<lastI-1))).map(t=>t.role==="user"?{t:"user",text:t.content}:(t.kind==="error"?{t:"sys",kind:"err",text:t.content}:{t:"ai",text:t.content,nodes:t.nodes,pro:t.kind==="proactive"}));saveMsgs();}   // 서버가 원본 (S114)
   resumeAfterRelaunch(h.ok?(h.turns||[]):null);
   if(p.ok&&p.interview&&!p.interview.done){startInterview(p.interview);}
   else if(!ST.msgs.length)ST.msgs.push({t:"empty"});
-  if(!p.ok)ST.msgs.push({t:"sys",kind:"err",text:errText(p.error),retry:"boot"});
+  if(!p.ok&&!(h.ok&&h.turns&&h.turns.length))ST.msgs.push({t:"sys",kind:"err",text:errText(p.error),retry:"boot"});
   renderLog();}
 /* 앱이 완전히 꺼졌다 다시 켜진 경우: 저장해 둔 '답 기다리는 중'을 이어받는다 */
 function resumeAfterRelaunch(turns){let P=null;try{P=JSON.parse(LS("ai_pending")||"null");}catch(e){}
@@ -164,7 +174,8 @@ function msgEl(m,i){
   if(m.t==="sys")return el("div",{class:"ai-sys "+(m.kind||"")},icon(m.kind==="err"?"bell":"spark"),el("span",{text:m.text}),
       m.retry?el("button",{class:"ai-lnk",onclick:()=>retry(m,i),text:"다시 시도"}):null);
   if(m.t==="live")return liveEl(m);
-  if(m.t==="ai"){const w=el("div",{class:"bub ai"});
+  if(m.t==="ai"){const w=el("div",{class:"bub ai"+(m.pro?" pro":"")});
+    if(m.pro)w.appendChild(el("div",{class:"ai-tag",text:"KORA가 먼저 건넨 말"}));
     if(m.nodes&&m.nodes.length)w.appendChild(thoughts(m.nodes,m.rootWhy,false));
     if(m.tools&&m.tools.length)w.appendChild(el("div",{class:"tchips"},m.tools.map(t=>el("span",{class:"tchip"+(t.ok===false?" bad":"")},icon(TOOL_ICO[t.name]||"gear"),TOOL_KO[t.name]||t.name))));
     (m.cards||[]).forEach(c=>{if(c.kind==="flight")w.appendChild(flightCard(c));if(c.kind==="deals")w.appendChild(dealsCard(c));});
@@ -365,9 +376,9 @@ function finishTurn(r,o,live){ST.reqTok=null;ST.pending=null;LS("ai_pending",nul
   saveMsgs();renderLog();orbFromInbox();
   if(o.inputMode==="voice"&&f.voice_script)speak(f.voice_script);
   if(r.usage&&r.usage.today)ST.usageToday=r.usage.today;}
-async function aiTurnCount(){if(!ST.sid)return 0;const h=await call({action:"history",sessionId:ST.sid,limit:60},10000);return h.ok?(h.turns||[]).filter(t=>t.role==="ai").length:-1;}
+async function aiTurnCount(){if(!ST.sid)return 0;const h=await call({action:"history",sessionId:ST.sid,limit:60},10000);return h.ok?(h.turns||[]).filter(t=>t.role==="ai"&&t.kind!=="proactive").length:-1;}
 /* 2026-11-25(3): 앱을 나갔다 와도(완전히 꺼졌다 켜져도) 서버가 끝낸 답을 대화 기록에서 찾아 붙인다 */
-function pickAnswer(turns,input,nBefore){const ais=turns.filter(t=>t.role==="ai");
+function pickAnswer(turns,input,nBefore){turns=turns.filter(t=>t.kind!=="proactive");const ais=turns.filter(t=>t.role==="ai");
   if(nBefore>=0&&ais.length>nBefore){const t=ais[ais.length-1];return t;}
   for(let i=turns.length-2;i>=0;i--){if(turns[i].role==="user"&&String(turns[i].content).trim()===String(input).trim()&&turns[i+1]&&turns[i+1].role==="ai")return turns[i+1];}
   return null;}
@@ -379,7 +390,7 @@ async function recoverAnswer(input,nBefore,first){
     if(t){if(t.kind==="error")return{ok:true,error_turn:true,cause_code:"",final:{reply_text:t.content}};
       return{ok:true,sessionId:ST.sid,final:{reply_text:t.content,sources:[]},nodes:t.nodes||[],cards:[],recovered:true};}}
   return null;}
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){if(ST.fixVV)ST.fixVV();resumeIfNeeded();}});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){if(ST.fixVV)ST.fixVV();resumeIfNeeded();if(ST.open&&!ST.busy&&!ST.pending){booted=false;boot();}}});   // 돌아오면 KORA가 먼저 건넨 말을 불러온다
 window.addEventListener("pageshow",e=>{if(e.persisted)resumeIfNeeded();});
 let resuming=false;
 async function resumeIfNeeded(){const P=ST.pending;if(!P||!ST.busy||resuming||Date.now()-P.at<1500)return;resuming=true;
