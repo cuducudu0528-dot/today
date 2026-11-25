@@ -1,9 +1,9 @@
-/* 브리핑 앱 — 건강 중심 개편 (2026-11-19)
+/* KORA (옛 이름: 브리핑) — 건강 중심 개편 (2026-11-19) · 2026-11-25 이름·디자인 KORA로 변경
    데이터: Apps Script 웹 앱 → { days, briefings, health }
    점수 계산식: docs/scoring.md 와 아래 SCORE 모듈이 같아야 한다. */
 (function(){
 "use strict";
-const APP_VER="2026-11-25-4";
+const APP_VER="2026-11-25-5";
 const DEF_URL="https://script.google.com/macros/s/AKfycbxgoPMdod-SPlKH4gcsmEH5bg1GVYMmRDgropKc4qbqLEBAKAQlR95xIzrz75Zfh2o9dg/exec";
 const WEEK=["일","월","화","수","목","금","토"];
 const COND=[[1,"😫","지침"],[2,"😮‍💨","피곤"],[3,"🙂","보통"],[4,"😊","좋음"],[5,"🤩","최고"]];
@@ -107,7 +107,7 @@ const mq=window.matchMedia?matchMedia("(prefers-color-scheme: dark)"):null;
 const themePref=()=>ls("ys_theme")||"system";
 function applyTheme(){const p=themePref();const dark=p==="dark"||(p==="system"&&mq&&mq.matches);
   document.documentElement.setAttribute("data-theme",dark?"dark":"light");
-  $("themeColor").setAttribute("content",dark?"#0B0C0E":"#F2F3F5");
+  $("themeColor").setAttribute("content",dark?"#121316":"#F3F2EE");
   refreshCharts();}
 if(mq){const f=()=>{if(themePref()==="system")applyTheme();};mq.addEventListener?mq.addEventListener("change",f):mq.addListener(f);}
 function setTheme(p){ls("ys_theme",p);applyTheme();renderMe();}
@@ -331,10 +331,12 @@ const PICKERS={cond:["컨디션 · 기분",condPicker],alc:["술",alcPicker],sup
 /* =====================================================================
    홈 — 시안 D(하루 타임라인) + A(오늘의 한 문장)
    ===================================================================== */
+/* KORA 로고 마크 (원본 비율 그대로, 색은 테마를 따름) */
+const KORA_MARK='<svg class="kmark" viewBox="0 0 100 100" fill="none" stroke-width="3.3" aria-hidden="true"><rect x="48.35" y="18.4" width="3.3" height="63.2" fill="currentColor"/><path d="M51.65 26.95A23.1 23.1 0 0 1 53.7 72.8M46.3 27.2A23.1 23.1 0 0 0 30.63 37.42M33.67 66.33A23.1 23.1 0 0 0 46.3 72.8" stroke="currentColor"/><path class="kmark-sage" d="M29.24 39.87A23.1 23.1 0 0 0 31.8 64.22" stroke="var(--sage)"/></svg>';
 function homeHeader(){const d=parseYmd(TODAY);const[g]=greeting();const age=healthAge();
   const sync=lastHealthAt()?'<span class="sync'+(age!=null&&age>SYNC_LATE_H?" late":"")+'">'+ico("refresh","ico-xs")+esc(String(lastHealthAt()).slice(11,16)||"")+' 동기화</span>':"";
   const unread=(S.briefs||[]).filter(isUnread).length;
-  return '<div class="hhd"><div><div class="dt">'+ico("cal","ico-sm")+(d.getMonth()+1)+'월 '+d.getDate()+'일 '+WEEK[d.getDay()]+'요일</div><div class="gr">'+g+', 연서 씨</div>'+sync+'</div><a class="iconbtn" href="#brief" aria-label="브리핑 알림">'+ico("bell")+(unread?'<i class="dot"></i>':"")+'</a><a class="iconbtn" href="#me" aria-label="내 정보">'+ico("user")+'</a></div>';}
+  return '<div class="kbrand">'+KORA_MARK+'<span>KORA</span></div><div class="hhd"><div><div class="dt">'+ico("cal","ico-sm")+(d.getMonth()+1)+'월 '+d.getDate()+'일 '+WEEK[d.getDay()]+'요일</div><div class="gr">'+g+', 연서 씨</div>'+sync+'</div><a class="iconbtn" href="#brief" aria-label="브리핑 알림">'+ico("bell")+(unread?'<i class="dot"></i>':"")+'</a><a class="iconbtn" href="#me" aria-label="내 정보">'+ico("user")+'</a></div>';}
 function heroCard(){const L=bodyLine();const ai=briefAI("condition");
   let h='<div class="hero">';
   if(L.score==null)return h+'<div class="one">'+esc(L.head)+'</div><div class="tip">'+esc(L.tip)+'</div><button class="btn-sub" onclick="load(true)">'+ico("refresh","ico-sm")+' 지금 다시 불러오기</button></div>';
@@ -675,7 +677,7 @@ function renderPlan(){
 function renderMe(){
   const p=themePref();const[ss,scls,smsg]=syncState();
   let h='<div class="page-title">내 정보</div><div class="page-sub">설정 · 연동 · 데이터</div><div class="stack">';
-  h+='<div class="card"><div class="setrow"><div class="hdr" style="padding:0"><div class="av">'+ico("user")+'</div></div><div class="m"><b>연서 씨</b><small>브리핑 앱 '+APP_VER+'</small></div></div></div>';
+  h+='<div class="card"><div class="setrow"><div class="hdr" style="padding:0"><div class="av">'+ico("user")+'</div></div><div class="m"><b>연서 씨</b><small>KORA '+APP_VER+'</small></div></div></div>';
   h+='<div class="card"><div class="card-hd">'+ico("sun","c-zap")+'<h3>화면 테마</h3></div><div class="theme3">'+[["system","시스템 설정","monitor"],["light","라이트","sun"],["dark","다크","moon"]].map(([k,l,i])=>'<button data-th="'+k+'" class="'+(p===k?"on":"")+'">'+ico(i)+l+'</button>').join("")+'</div><div class="cap" style="margin-top:10px">시스템 설정을 고르면 폰이 다크 모드로 바뀔 때 앱도 함께 바뀌어요.</div></div>';
   h+='<div class="card"><div class="card-hd">'+ico("check","c-accent")+'<h3>기록 기본값</h3></div><div class="trow"><span>평일 점심 자동 기록</span><button class="toggle '+(lunchDefOn()?"on":"")+'" id="tgLunch" aria-label="평일 점심 자동 기록"></button></div>'+
     '<div class="lbl" style="margin-left:0">점심 장소</div><div class="addrow"><input class="field" id="lunchIn" maxlength="30" value="'+esc(lunchPlace())+'"><button class="btn-sub" id="lunchSave">저장</button></div>'+
@@ -805,5 +807,5 @@ if(!CFG.key){setStatus("연결이 필요해요 · 내 정보에서 비밀번호�
 checkUpdate();
 setInterval(()=>{if(document.visibilityState==="visible"&&!dirty)load(false);},5*60000);
 setInterval(()=>{dayRoll();},60000);
-window.__app={S,SCORE,setTheme,ico,esc,openSheet,closeSheet,toast}; // 테스트용 + AI 모듈(ai.js)이 쓰는 도구
+window.__app={S,SCORE,setTheme,ico,esc,openSheet,closeSheet,toast,mark:KORA_MARK}; // 테스트용 + AI 모듈(ai.js)이 쓰는 도구
 })();

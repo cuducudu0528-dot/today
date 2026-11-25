@@ -52,7 +52,7 @@ const ERR={NOT_CONNECTED:"AI 서버가 연결되지 않았어요. 내 정보에�
 const errText=e=>ERR[e]||("문제가 생겼어요("+e+"). 다시 시도해 주세요.");
 
 /* ---------- 존재감 오브 (S103) ---------- */
-function orb(){let o=$("aiOrb");if(!o){o=el("button",{id:"aiOrb",class:"ai-orb","aria-label":"AI 파트너 열기",onclick:()=>openChat()},el("span",{class:"core"}),el("span",{class:"pip"}));document.body.appendChild(o);}return o;}
+function orb(){let o=$("aiOrb");if(!o){o=el("button",{id:"aiOrb",class:"ai-orb","aria-label":"AI 파트너 열기",onclick:()=>openChat()},el("span",{class:"core",html:A.mark||""}),el("span",{class:"pip"}));document.body.appendChild(o);}return o;}
 function setOrb(state){const o=orb();o.dataset.state=state;o.setAttribute("aria-label","AI 파트너 열기 · "+({idle:"쉬는 중",thinking:"생각 중",waking:"할 말이 있어요"}[state]||""));}
 function orbFromInbox(){if(ST.busy)return setOrb("thinking");setOrb(ST.inbox.some(i=>i.status==="NEW")?"waking":"idle");}
 
@@ -153,7 +153,7 @@ function msgEl(m,i){
 const TOOL_KO={flight_search:"항공권 조회",web_research:"웹 검색",memory_search:"기억 찾기",calendar_read:"일정 읽기",health_summary_read:"건강 요약",weather_read:"날씨",inbox_add:"나중 할 일"};
 const TOOL_ICO={flight_search:"zap",web_research:"link",memory_search:"spark",calendar_read:"cal",health_summary_read:"heart",weather_read:"cloud",inbox_add:"bell"};
 function emptyEl(){const P=ST.persona||{};const s=["12월 5일 출발 7일 귀국 후쿠오카 3명, 가는 편 오전 오는 편 오후로 찾아줘","이번 주 일정에서 미리 챙길 것 알려 줘","요즘 나에 대해 기억하고 있는 걸 보여 줘"];
-  return el("div",{class:"ai-empty"},el("div",{class:"orbbig"},el("span",{class:"core"})),
+  return el("div",{class:"ai-empty"},el("div",{class:"orbbig"},el("span",{class:"core",html:A.mark||""})),
     el("b",{text:(P.name?P.name+"예요":"안녕하세요")+". 무엇을 같이 볼까요?"}),
     el("small",{text:"생각하는 과정은 단계별로 접어서 보여 드려요. 숫자는 조회 결과만 인용해요."}),
     el("div",{class:"sugs"},s.map(x=>el("button",{class:"ai-chip",onclick:()=>{$("aiIn").value=x;sendFromBox();},text:x}))));}
@@ -389,7 +389,7 @@ function openPanel(){const box=el("div");box.appendChild(sideContent());
 /* ---------- 앱 화면에 넣는 진입점 (S101·S097·S124) ---------- */
 function injectHome(){const v=$("v-home");if(!v||!enabled())return;
   const q=v.querySelector(".hero.quote")||v.querySelector(".hero");
-  const old=q&&q.querySelector(".ai-ask");if(old)old.remove();if(q)q.appendChild(el("button",{class:"ai-ask",onclick:()=>openChat()},el("span",{class:"mini-orb"}),el("span",{text:(ST.persona&&ST.persona.name?ST.persona.name+"에게":"AI에게")+" 이야기하기"}),icon("chev")));}
+  const old=q&&q.querySelector(".ai-ask");if(old)old.remove();if(q)q.appendChild(el("button",{class:"ai-ask",onclick:()=>openChat()},el("span",{class:"mini-orb",html:A.mark||""}),el("span",{text:(ST.persona&&ST.persona.name?ST.persona.name+"에게":"AI에게")+" 이야기하기"}),icon("chev")));}
 let hbrief=null;
 async function injectHealth(force){const v=$("v-health");if(!v||!enabled())return;
   const old=$("aiHealthBrief");if(old)old.remove();
@@ -406,7 +406,7 @@ function injectBrief(){const v=$("v-brief");if(!v||!enabled())return;
   const items=ST.inbox.filter(x=>x.status==="NEW"||x.status==="SEEN").slice(0,3);
   const box=el("div",{id:"aiBriefTop",class:"ai-brief"});
   if(items.length)items.forEach(x=>box.appendChild(questionCard(x)));
-  else box.appendChild(el("button",{class:"card ai-entry",onclick:()=>openChat()},el("span",{class:"mini-orb"}),el("div",null,el("b",{text:"AI 파트너"}),el("small",{text:"지금은 먼저 물어볼 게 없어요. 궁금한 걸 물어보세요."})),icon("chev")));
+  else box.appendChild(el("button",{class:"card ai-entry",onclick:()=>openChat()},el("span",{class:"mini-orb",html:A.mark||""}),el("div",null,el("b",{text:"AI 파트너"}),el("small",{text:"지금은 먼저 물어볼 게 없어요. 궁금한 걸 물어보세요."})),icon("chev")));
   const sub=v.querySelector(".page-sub");sub?sub.after(box):v.prepend(box);}
 
 /* ---------- 내 정보: 연결·설정·사용량 (S119·S125·S129) ---------- */

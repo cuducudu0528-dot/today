@@ -1112,7 +1112,6 @@ html.ai-open,html.ai-open body{overflow:hidden}
 .ud{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}.ud small{font-size:11px;color:var(--faint)}
 .ua{flex:1;width:100%;display:flex;align-items:flex-end}.ua i{display:block;width:100%;border-radius:6px 6px 3px 3px;background:var(--accent-bg);box-shadow:inset 0 2px 0 var(--accent)}
 
-/* ===== 노치 보호 (2026-11-22-7) — 이 블록은 항상 파일 맨 끝에 둘 것 ===== body::before = 상태바(노치) 가림막 전용. 배경은 html에만 그린다. 디자인 바꿀 때 body::before를 배경으로 쓰지 말 것. */ :root{--sat:env(safe-area-inset-top,0px)} html{background:radial-gradient(70% 40% at 100% 0%,var(--color-primary-soft),transparent 70%) fixed,var(--bg)} body{background:transparent} body::before{content:""!important;position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:auto!important; height:var(--sat)!important;background:var(--bg)!important;z-index:60!important;pointer-events:none!important;display:block!important} .wrap{padding-top:calc(var(--sat) + var(--sp-2))!important} .toast{top:calc(var(--sat) + 12px)} #ptr{padding-top:calc(var(--sat) + 8px)}
 /* v6 1단계: 새 메시지 버튼 (위로 읽는 중일 때) */
 .ai-new{position:relative;align-self:center;flex:none;margin-top:-44px;margin-bottom:8px;z-index:2;min-height:36px;padding:6px 14px;border-radius:999px;background:var(--ink);color:var(--bg);font-size:13px;font-weight:700;box-shadow:var(--shadow)}
 .ai-new[hidden]{display:none}
@@ -1136,3 +1135,107 @@ html.ai-open,html.ai-open body{overflow:hidden}
 html.ai-scrolling .ai-orb{opacity:.18;pointer-events:none}
 html.ai-on .view{padding-bottom:calc(150px + env(safe-area-inset-bottom))}
 .ai-hb{margin-bottom:16px}
+
+/* ==========================================================
+   KORA 디자인 (2026-11-25) — 로고 기준
+   따뜻한 오프화이트 · 잉크 블랙 · 세이지 그린 하나.
+   그라데이션·유리·그레인 없이 선과 여백으로. 데이터 색은 차분하게.
+   ========================================================== */
+:root,[data-theme="light"]{
+  --sage:#5E7068; --sage-2:#7D8E86;
+  --bg:#F3F2EE; --card:#FBFAF7; --raised:#FFFFFF; --surface:#ECEAE4; --surface-2:#F6F5F1;
+  --ink:#1B1C21; --sub:#62656B; --faint:#93958F; --line:#E2E0D9;
+  --color-text:#1B1C21; --color-text-secondary:#62656B; --color-text-muted:#93958F; --color-stone:#E2E0D9;
+  --accent:#5E7068; --accent-ink:#46564F; --accent-bg:#E4E9E5;
+  --color-primary:#5E7068; --color-primary-deep:#46564F; --color-primary-soft:#E4E9E5;
+  --blue:#56708C; --blue-bg:#E5EAF0;
+  --up:#4E7A5E; --down:#B5524B; --warn:#A87A2C; --warn-bg:#F3EAD8; --bad-bg:#F4E4E1; --color-danger:#B5524B;
+  --deep:#3E4A63; --core:#8EA0B8; --rem:#8A7FA3; --awake:#C9A25E;
+  --heart:#B5605A; --heart-bg:#F3E5E2; --zap:#A8813F; --zap-bg:#F2EADB; --step:#5E7068; --step-bg:#E4E9E5;
+  --water:#5C7F9C; --water-bg:#E4ECF2; --coffee:#8A6A52; --coffee-bg:#EFE7DF; --supp:#A8893A; --supp-bg:#F2ECDA;
+  --alc:#7E7096; --alc-bg:#EAE6F0; --food:#B07548; --food-bg:#F3E8DE; --work:#5E7068; --work-bg:#E4E9E5; --sleep:#4E5A78; --sleep-bg:#E6E8EF;
+  --shadow:none; --tab-bg:#FBFAF7; --tab-ink:#93958F; --scrim:rgba(27,28,33,.32);
+  --wave-a:rgba(94,112,104,.22); --wave-b:rgba(86,112,140,.16);
+  --bg-img:none; --grain-op:0;
+}
+[data-theme="dark"]{
+  --sage:#93A89E; --sage-2:#7A8F85;
+  --bg:#121316; --card:#1A1B1F; --raised:#222328; --surface:#25262B; --surface-2:#1E1F23;
+  --ink:#ECEBE6; --sub:#A6A7A2; --faint:#76786F; --line:#2B2C31;
+  --color-text:#ECEBE6; --color-text-secondary:#A6A7A2; --color-text-muted:#76786F; --color-stone:#2B2C31;
+  --accent:#93A89E; --accent-ink:#B2C4BB; --accent-bg:#262E2A;
+  --color-primary:#93A89E; --color-primary-deep:#B2C4BB; --color-primary-soft:#262E2A;
+  --blue:#8DA3BD; --blue-bg:#232A33;
+  --up:#8FB89C; --down:#D98A83; --warn:#D2B072; --warn-bg:#332B1D; --bad-bg:#352220; --color-danger:#D98A83;
+  --deep:#7D8BB0; --core:#A9B7CC; --rem:#AFA4C6; --awake:#D2B072;
+  --heart:#D98A83; --heart-bg:#352220; --zap:#D2B072; --zap-bg:#332B1D; --step:#93A89E; --step-bg:#262E2A;
+  --water:#8FAFC9; --water-bg:#222B33; --coffee:#BC9B83; --coffee-bg:#2E2621; --supp:#D2B072; --supp-bg:#332B1D;
+  --alc:#AFA4C6; --alc-bg:#2A2733; --food:#D3A07A; --food-bg:#332821; --work:#93A89E; --work-bg:#262E2A; --sleep:#9AA6C6; --sleep-bg:#24273A;
+  --shadow:none; --tab-bg:#1A1B1F; --tab-ink:#76786F; --scrim:rgba(0,0,0,.55);
+  --wave-a:rgba(147,168,158,.22); --wave-b:rgba(141,163,189,.18);
+  --bg-img:none; --grain-op:0;
+}
+html{background:var(--bg)}
+body::after{display:none!important}
+/* 브랜드 줄 */
+.kmark{display:block;color:var(--ink)}
+.kbrand{display:flex;align-items:center;gap:8px;padding:6px 4px 2px;color:var(--ink)}
+.kbrand .kmark{width:26px;height:26px}
+.kbrand span{font-size:13px;font-weight:700;letter-spacing:.32em;color:var(--ink)}
+/* 글꼴: 제목은 단단하게, 본문은 조용하게 */
+.page-title{font-size:30px;font-weight:700;letter-spacing:-.045em}
+.hhd .gr{font-size:27px;font-weight:650;letter-spacing:-.045em}
+.hhd .dt{color:var(--sub)}
+.sec-title{font-weight:650;letter-spacing:-.02em}
+/* 카드: 그림자 대신 가는 선 */
+.card,.hero,.b-hero>.card,[data-theme="dark"] .card,[data-theme="dark"] .hero{background:var(--card)!important;border:1px solid var(--line)!important;box-shadow:none!important;border-radius:22px}
+.card-hd>.ico{background:var(--surface);color:var(--ink)}
+.card-hd>.ico.c-accent,.card-hd>.ico.c-step{background:var(--accent-bg);color:var(--accent)}
+.mini,.kn,.qk,.sg,.metric,.insight,.chips button,.seg button.on,.chip,.sync,.hdr .av{background:var(--raised)!important;border:1px solid var(--line)!important;box-shadow:none!important}
+[data-theme="dark"] .mini,[data-theme="dark"] .kn,[data-theme="dark"] .qk,[data-theme="dark"] .sg,[data-theme="dark"] .metric,[data-theme="dark"] .insight{background:var(--raised)!important}
+.hhd .iconbtn{background:var(--card);border:1px solid var(--line);box-shadow:none}
+/* 오늘의 한 문장: 장식 없는 카드 + 세이지 세로선(로고의 선) */
+.hero.quote,[data-theme="dark"] .hero.quote{background:var(--card)!important;position:relative;padding-left:26px!important}
+.hero.quote::before{display:block!important;content:"";position:absolute;left:0;top:22px;bottom:22px;width:3px;border-radius:0 2px 2px 0;background:var(--sage)}
+.hero.quote .one{font-weight:650;letter-spacing:-.04em}
+.hero.quote .tag,.hero.quote .tag .ico{color:var(--sage)}
+/* 버튼 */
+.primary,[data-theme="dark"] .primary,.btn-main{background:var(--ink)!important;color:var(--bg)!important;box-shadow:none!important}
+.ai-btn{background:var(--ink);color:var(--bg)}
+.ai-btn.ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+/* 하단 탭: 평평한 바, 선택은 잉크 + 세이지 점 */
+.tabbar,[data-theme="dark"] .tabbar{background:var(--tab-bg)!important;border:1px solid var(--line)!important;box-shadow:0 10px 30px -18px rgba(27,28,33,.35)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+.tabbar a{color:var(--tab-ink)!important;position:relative}
+.tabbar a.on,[data-theme="dark"] .tabbar a.on{background:transparent!important;box-shadow:none!important;color:var(--ink)!important;font-weight:700}
+.tabbar a.on .ico,[data-theme="dark"] .tabbar a.on .ico{color:var(--ink)!important}
+.tabbar a.on::after{content:"";position:absolute;left:50%;bottom:3px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--sage)}
+/* 시트(아래에서 올라오는 창) */
+.sheet,[data-theme="light"] .sheet,:root:not([data-theme="dark"]) .sheet,[data-theme="dark"] .sheet{background:var(--card)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+/* AI 오브 → KORA 마크 */
+.ai-orb{background:var(--card)!important;border:1px solid var(--line)!important;box-shadow:0 8px 24px -14px rgba(27,28,33,.45)!important;color:var(--ink)}
+.ai-orb .core{background:none!important;width:30px;height:30px;animation:none!important}
+.ai-orb .core .kmark{width:30px;height:30px}
+.ai-orb[data-state="thinking"] .kmark-sage{animation:kPulse 1.1s ease-in-out infinite}
+.ai-orb[data-state="waking"] .kmark-sage{stroke:var(--sage)}
+.ai-orb .pip{background:var(--sage)!important;border-color:var(--card)!important}
+@keyframes kPulse{0%,100%{opacity:1}50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.ai-orb .kmark-sage{animation:none!important}}
+.mini-orb{background:none!important;border-radius:0}
+/* 대화 화면 */
+.bub.me .bx{background:var(--ink)!important;color:var(--bg)!important}
+[data-theme="dark"] .bub.me .bx{color:var(--bg)!important}
+.bub.ai .bx{background:var(--card);border:1px solid var(--line);box-shadow:none}
+.ai-send{background:var(--ink)!important;color:var(--bg)!important}
+.ai-chip.on{background:var(--accent-bg);color:var(--accent-ink)}
+.ai-hd,.ai-compose{background:var(--bg)}
+/* 그래프 막대·링은 세이지 톤 */
+.bar i,.bars i,.ring .fg{background:var(--sage)}
+.mini-orb{color:var(--ink);display:inline-flex}.mini-orb .kmark{width:100%;height:100%}
+.tabbar a.on .ico,[data-theme="dark"] .tabbar a.on .ico{background:none!important;padding:0!important}
+.tabbar a.on::after,[data-theme="dark"] .tabbar a.on::after{display:block!important;background:var(--sage)!important;bottom:2px}
+.orbbig .core{background:none!important;animation:none!important;color:var(--ink);width:72px!important;height:72px!important;border-radius:0!important}
+.orbbig .core .kmark{width:100%;height:100%}
+.orbbig{background:none!important;box-shadow:none!important}
+.fab,[data-theme="dark"] .fab{background:var(--ink)!important;color:var(--bg)!important;box-shadow:0 10px 24px -14px rgba(27,28,33,.6)!important}
+.toggle.on{background:var(--sage)!important}
+/* ===== 노치 보호 (2026-11-22-7 · 2026-11-25 KORA: 배경 단색) — 이 블록은 항상 파일 맨 끝에 둘 것 ===== body::before = 상태바(노치) 가림막 전용. 배경은 html에만 그린다. 디자인 바꿀 때 body::before를 배경으로 쓰지 말 것. */ :root{--sat:env(safe-area-inset-top,0px)} html{background:var(--bg)} body{background:transparent} body::before{content:""!important;position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:auto!important; height:var(--sat)!important;background:var(--bg)!important;z-index:60!important;pointer-events:none!important;display:block!important} .wrap{padding-top:calc(var(--sat) + var(--sp-2))!important} .toast{top:calc(var(--sat) + 12px)} #ptr{padding-top:calc(var(--sat) + 8px)}
