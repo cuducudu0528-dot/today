@@ -3,7 +3,7 @@
    점수 계산식: docs/scoring.md 와 아래 SCORE 모듈이 같아야 한다. */
 (function(){
 "use strict";
-const APP_VER="2026-11-26-1";
+const APP_VER="2026-11-26-2";
 const DEF_URL="https://script.google.com/macros/s/AKfycbxgoPMdod-SPlKH4gcsmEH5bg1GVYMmRDgropKc4qbqLEBAKAQlR95xIzrz75Zfh2o9dg/exec";
 const WEEK=["일","월","화","수","목","금","토"];
 const COND=[[1,"😫","지침"],[2,"😮‍💨","피곤"],[3,"🙂","보통"],[4,"😊","좋음"],[5,"🤩","최고"]];
@@ -158,7 +158,7 @@ function sleepOn(date){const H=S.health;return H?arr(H.sleep).find(x=>x.date===d
 function sleepsBefore(date){const H=S.health;return H?arr(H.sleep).filter(x=>x.date<date).sort((a,b)=>b.date.localeCompare(a.date)):[];}
 function metric(date,k){const H=S.health;const d=H&&H.daily&&H.daily[date];return d&&d[k]!=null?num(d[k]):null;}
 function latestSleep(){const H=S.health;if(!H)return null;const a=arr(H.sleep).slice().sort((a,b)=>b.date.localeCompare(a.date));return a[0]||null;}
-function lastHealthAt(){const H=S.health;if(!H)return"";return[H.healthAt,H.haeAt].filter(Boolean).sort().pop()||"";}
+function lastHealthAt(){const H=S.health;if(!H)return"";const b=H.sources&&H.sources.backup&&H.sources.backup.ok?H.healthAt:(H.sources?"":H.healthAt);return[b,H.haeAt].filter(Boolean).sort().pop()||"";}
 function healthAge(){const a=lastHealthAt();if(!a)return null;const t=new Date(String(a).replace(" ","T")+":00+09:00");return isNaN(t)?null:(Date.now()-t)/36e5;}
 function syncState(){
   if(!CFG.key)return["연결되지 않음","bad","앱 비밀번호를 넣어 주세요"];
@@ -339,7 +339,7 @@ function homeHeader(){const d=parseYmd(TODAY);const[g]=greeting();const age=heal
   return '<div class="kbrand">'+KORA_MARK+'<span>KORA</span></div><div class="hhd"><div><div class="dt">'+ico("cal","ico-sm")+(d.getMonth()+1)+'월 '+d.getDate()+'일 '+WEEK[d.getDay()]+'요일</div><div class="gr">'+g+', 연서 씨</div>'+sync+'</div><a class="iconbtn" href="#brief" aria-label="브리핑 알림">'+ico("bell")+(unread?'<i class="dot"></i>':"")+'</a><a class="iconbtn" href="#me" aria-label="내 정보">'+ico("user")+'</a></div>';}
 function heroCard(){const L=bodyLine();const ai=briefAI("condition");
   let h='<div class="hero">';
-  if(L.score==null)return h+'<div class="one">'+esc(L.head)+'</div><div class="tip">'+esc(L.tip)+'</div><button class="btn-sub" onclick="load(true)">'+ico("refresh","ico-sm")+' 지금 다시 불러오기</button></div>';
+  if(L.score==null)return h+'<div class="one">'+esc(L.head)+'</div><div class="tip">'+esc(L.tip)+'</div><button class="btn-sub" onclick="koraReload()">'+ico("refresh","ico-sm")+' 지금 다시 불러오기</button></div>';
   const c=L.c;const l=lv5(c.score);
   h='<div class="hero quote">'; h+='<div class="tag">'+ico("spark","ico-xs")+(ai?"AI 해석":"오늘의 한 문장")+'</div><div class="one">'+esc(ai||L.head)+'</div><div class="tip">'+esc(L.tip)+'</div>'+(L.extra?'<div class="cap" style="margin-top:6px">'+esc(L.extra)+'</div>':"");
   // 링 + 구성 3줄
@@ -685,11 +685,17 @@ function renderMe(){
   const row=(icon,name,state,cls,note)=>'<div class="setrow"><span class="c-blue">'+ico(icon)+'</span><div class="m"><b>'+name+'</b><small>'+esc(note)+'</small></div><span class="badge '+cls+'">'+state+'</span></div>';
   const H=S.health;
   h+='<div class="card"><div class="card-hd">'+ico("link","c-accent")+'<h3>건강 데이터 연동</h3></div>'+
-    row("phone","Apple 건강 (아이폰 단축어 백업)",ss,scls,smsg)+
+    row("phone","건강 데이터 (전체)",ss,scls,smsg)+
+    (()=>{const B=H&&H.sources&&H.sources.backup;if(!B)return row("doc","Apple 백업 단축어 (폰 뒤 톡톡)","확인 전","gray","서버가 아직 출처 상태를 보내지 않았어요");
+      return B.ok?row("doc","Apple 백업 단축어 (폰 뒤 톡톡)","연결됨","","마지막 백업 "+(B.at||"—")+" · 수면·걸음·심박 등 전체 건강이 들어와요"):row("doc","Apple 백업 단축어 (폰 뒤 톡톡)","읽기 실패","bad",B.error||"서버가 백업 문서를 못 읽었어요");})()+
     row("watch","Apple Watch",H&&arr(H.sleep).length?"데이터 있음":"데이터 없음",H&&arr(H.sleep).length?"":"gray",H&&arr(H.sleep).length?"수면 단계·HRV·심박·혈중산소를 워치가 측정해요":"워치 수면 기록이 아직 없어요")+
-    (H&&H.haeAt?row("refresh","Health Auto Export (자동 전송)","연결됨","","마지막 자동 전송 "+H.haeAt):row("refresh","Health Auto Export (자동 전송)","동기화 대기","warn","앱에서 REST API 자동화를 켜면 첫 전송 후 연결됨으로 바뀌어요"))+
+    (()=>{const E=H&&H.sources&&H.sources.hae;if(E&&!E.ok)return row("refresh","Health Auto Export (자동 전송)","읽기 실패","bad",E.error||"");
+      if(!(H&&H.haeAt))return row("refresh","Health Auto Export (자동 전송)","동기화 대기","warn","앱에서 REST API 자동화를 켜면 첫 전송 후 연결됨으로 바뀌어요");
+      const t=new Date(String(H.haeAt).replace(" ","T")+":00+09:00"),age=(Date.now()-t)/36e5;
+      return age>SYNC_LATE_H?row("refresh","Health Auto Export (자동 전송)","전송 멈춤","warn","마지막 자동 전송 "+H.haeAt+" · 아이폰에서 앱을 한 번 열어 주세요 (단축어 백업이 있으면 그 값으로 채워요)"):row("refresh","Health Auto Export (자동 전송)","연결됨","","마지막 자동 전송 "+H.haeAt);})()+
+    '<button class="btn-sub" style="margin-top:10px" onclick="koraReload()">'+ico("refresh","ico-sm")+' 건강 데이터 지금 다시 불러오기</button>'+
     row("heart","Samsung Health","지원되지 않음","gray","아이폰에서는 Samsung Health 데이터를 받을 수 없어요 (안드로이드 Health Connect 전용)")+
-    '<div class="lbl" style="margin-left:0">아이폰에서 할 일</div><ol class="steps"><li><b>Health Auto Export</b>: 자동화 → 새 자동화 → REST API → URL에 Claude가 알려 준 주소 → 형식 JSON · 기간 지난 7일 · 데이터 요약 켬 · 묶음 단위 일 → 동기화 주기 1시간</li><li>지표: 걸음·활동 에너지·휴식 에너지·안정 시 심박·심박 변이도·혈중 산소·호흡수·운동 시간·걷기+달리기 거리·오른 층수·스탠드 시간·VO₂max·수면 분석</li><li>Health Auto Export 위젯을 홈 화면에 두면 백그라운드 전송이 더 잘 돼요</li><li>미리 알림·일정은 지금처럼 <b>폰 뒤 톡톡</b>(단축어 "Apple 백업")으로 보내요</li><li>잠금이 풀린 상태에서만 아이폰이 건강 데이터를 내줘요</li><li>앱은 열 때마다, 켜 둔 동안은 5분마다 새 데이터를 가져와요</li><li>14시간 넘게 새 데이터가 없으면 \'동기화 지연\'으로 알려 드려요</li></ol></div>';
+    '<div class="lbl" style="margin-left:0">아이폰에서 할 일</div><ol class="steps"><li><b>Health Auto Export</b>: 자동화 → REST API → 형식 JSON · <b>기간 \'지난 7일\'</b>(\'마지막 동기화 이후\'로 두면 조각만 와요) · 데이터 요약 켬 · 묶음 단위 일 · 동기화 주기 1시간</li><li>두 출처를 합쳐서 보여 줘요: 같은 날 값이 여러 번 오면 걸음·에너지는 큰 값, 수면은 더 길게 잡힌 밤을 써요. 그래서 조각 전송이 와도 숫자가 줄어들지 않아요</li><li>지표: 걸음·활동 에너지·휴식 에너지·안정 시 심박·심박 변이도·혈중 산소·호흡수·운동 시간·걷기+달리기 거리·오른 층수·스탠드 시간·VO₂max·수면 분석</li><li>Health Auto Export 위젯을 홈 화면에 두면 백그라운드 전송이 더 잘 돼요</li><li>미리 알림·일정은 지금처럼 <b>폰 뒤 톡톡</b>(단축어 "Apple 백업")으로 보내요</li><li>잠금이 풀린 상태에서만 아이폰이 건강 데이터를 내줘요</li><li>앱은 열 때마다, 켜 둔 동안은 5분마다 새 데이터를 가져와요</li><li>14시간 넘게 새 데이터가 없으면 \'동기화 지연\'으로 알려 드려요</li></ol></div>';
   h+='<div class="card"><div class="card-hd">'+ico("bell","c-zap")+'<h3>알림 · 브리핑 시간</h3></div><div class="list">'+
     [["아침 브리핑","평일 07:00 · 주말 10:00"],["마감일 사전 알림","매일 08:40"],["비서 판단 알림","08:37 · 10:37 · 12:37 · 15:37 · 17:37 · 21:37"],["저녁 전 질문","매일 19:20"],["저녁 정리","매일 20:23"],["주간 계획 · 월간 점검","일요일 19:30 · 매달 1일 08:55"]].map(([a,b])=>'<div class="li"><div class="m"><div class="t">'+a+'</div><div class="s">'+b+'</div></div></div>').join("")+
     '</div><div class="cap" style="margin-top:10px">모든 브리핑·알림은 이 앱에 올라와요. 시간 변경은 Claude에게 말해 주세요.</div></div>';
@@ -744,8 +750,13 @@ function renderTab(t){
 function renderAll(keepScroll){const y=window.scrollY;renderTab(curTab());renderBadge();if(keepScroll)window.scrollTo(0,y);}
 
 /* ---------- 서버 ---------- */
-async function apiGet(){const r=await fetch(CFG.url+"?key="+encodeURIComponent(CFG.key)+"&t="+Date.now(),{cache:"no-store"});return r.json();}
-async function apiPost(body){const r=await fetch(CFG.url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(Object.assign({key:CFG.key},body))});return r.json();}
+/* 2026-11-26-2: 요청마다 시간 제한(멈춘 요청 때문에 다시 불러오기가 영원히 막히지 않게) + 한 번 더 시도 */
+async function fetchJson(url,opt,ms){const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),ms||30000);
+  try{const r=await fetch(url,Object.assign({},opt,{signal:ctl.signal}));const txt=await r.text();try{return JSON.parse(txt);}catch(e){throw new Error(/<html/i.test(txt)?"서버가 웹페이지를 돌려줬어요(권한·배포 확인 필요)":"응답을 읽지 못했어요");}}
+  finally{clearTimeout(t);}}
+async function apiGet(fresh){const u=()=>CFG.url+"?key="+encodeURIComponent(CFG.key)+(fresh?"&fresh=1":"")+"&t="+Date.now();
+  try{return await fetchJson(u(),{cache:"no-store"},30000);}catch(e){await new Promise(r=>setTimeout(r,1500));return fetchJson(u(),{cache:"no-store"},40000);}}
+async function apiPost(body){return fetchJson(CFG.url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(Object.assign({key:CFG.key},body))},30000);}
 
 /* 기록 저장 (기존 saveDay 동작 그대로) */
 let saveTimer=null,saving=false,dirty=false,savedMsg="";
@@ -767,17 +778,17 @@ let loading=false;
 async function load(show){
   if(!CFG.key){setStatus("연결이 필요해요 · 내 정보에서 비밀번호를 넣어 주세요","off");return;}
   if(loading)return;loading=true;if(show)setStatus("불러오는 중…","wait");
-  try{const res=await apiGet();
+  try{const res=await apiGet(!!show);
     if(!res||!res.ok){setStatus(res&&res.error==="key"?"비밀번호가 맞지 않아요":"불러오지 못했어요","off");}
     else{const next={};(res.days||[]).forEach(d=>{if(d&&d.date)next[d.date]=d;});S.days=next;
       if(next[TODAY]&&!dirty&&!saving)today=normDay(TODAY,next[TODAY]);
       S.briefs=(res.briefings||[]).filter(b=>b&&b.date).sort((a,b)=>str(b.createdAt).localeCompare(str(a.createdAt)));
-      if(res.health&&!res.health.error){S.health=normHealth(res.health);S.healthErr="";}else{S.healthErr=res.health&&res.health.error?String(res.health.error):"";}
+      if(res.health&&!res.health.error){S.health=normHealth(res.health);S.healthErr="";}else{S.healthErr=res.health&&res.health.error?String(res.health.error):"건강 데이터가 비어 있어요";}   /* 실패해도 이전 건강 데이터는 그대로 보여 준다 */
       S.loadedAt=new Date();setStatus("최신 · "+hhmm(S.loadedAt)+" 업데이트","ok");
       ls("ys_cache",JSON.stringify({days:res.days,briefings:res.briefings,health:res.health||null}));
       const ae=document.activeElement;if(!(ae&&/INPUT|TEXTAREA/.test(ae.tagName)))renderAll(true);else renderBadge();}
-  }catch(err){setStatus("연결이 안 돼요 · 저장된 내용을 보여 줘요","off");}
-  loading=false;
+  }catch(err){setStatus((err&&err.name==="AbortError"?"서버 응답이 늦어요":"연결이 안 돼요")+" · 저장된 내용을 보여 줘요 · 당겨서 다시 시도","off");}
+  finally{loading=false;}
 }
 function loadCache(){try{const c=JSON.parse(ls("ys_cache")||"null");if(!c)return;(c.days||[]).forEach(d=>{if(d&&d.date)S.days[d.date]=d;});if(S.days[TODAY])today=normDay(TODAY,S.days[TODAY]);
   S.briefs=(c.briefings||[]).filter(b=>b&&b.date).sort((a,b)=>str(b.createdAt).localeCompare(str(a.createdAt)));if(c.health&&!c.health.error)S.health=normHealth(c.health);}catch(e){}}
@@ -807,5 +818,6 @@ if(!CFG.key){setStatus("연결이 필요해요 · 내 정보에서 비밀번호�
 checkUpdate();
 setInterval(()=>{if(document.visibilityState==="visible"&&!dirty)load(false);},5*60000);
 setInterval(()=>{dayRoll();},60000);
+window.koraReload=function(){toast("건강 데이터를 새로 불러오는 중…");return load(true).then(()=>{toast(S.healthErr&&!S.health?"건강 데이터를 못 불러왔어요":"새로 불러왔어요 · "+(lastHealthAt()||"—"));});};
 window.__app={S,SCORE,setTheme,ico,esc,openSheet,closeSheet,toast,mark:KORA_MARK}; // 테스트용 + AI 모듈(ai.js)이 쓰는 도구
 })();

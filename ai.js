@@ -42,14 +42,16 @@ async function call(payload,ms){
   if(navigator.onLine===false)return{ok:false,error:"OFFLINE"};
   const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),ms||20000);
   try{const r=await fetch(CFG.url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(Object.assign({token:CFG.token},payload)),signal:ctl.signal});
-    const j=await r.json();if(j&&j.error==="UNAUTHORIZED"){ST.lastErr="UNAUTHORIZED";}return j||{ok:false,error:"EMPTY"};}
+    const txt=await r.text();let j=null;try{j=JSON.parse(txt);}catch(pe){return{ok:false,error:/<html|<!doctype/i.test(txt)?"SERVER_HTML":"BAD_RESPONSE"};}
+    if(j&&j.error==="UNAUTHORIZED"){ST.lastErr="UNAUTHORIZED";}return j||{ok:false,error:"EMPTY"};}
   catch(e){return{ok:false,error:e&&e.name==="AbortError"?"TIMEOUT":"NETWORK"};}
   finally{clearTimeout(t);}}
 const ERR={NOT_CONNECTED:"AI 서버가 연결되지 않았어요. 내 정보에서 주소와 토큰을 넣어 주세요.",OFFLINE:"인터넷 연결이 없어요. 연결되면 다시 보낼 수 있어요.",TIMEOUT:"답이 너무 오래 걸려서 멈췄어요. 다시 보내 볼까요?",
   NETWORK:"AI 서버에 닿지 못했어요. 잠시 뒤 다시 시도해 주세요.",UNAUTHORIZED:"토큰이 맞지 않아요. 내 정보에서 AI 토큰을 다시 넣어 주세요.",AI_DISABLED:"AI 서버가 꺼져 있어요(AI_ENABLED).",
   LIMIT_REACHED:"오늘 AI 사용 한도를 다 썼어요. 내일 0시에 다시 열려요.","MISSING_KEY:GEMINI":"AI 서버에 Gemini 키가 아직 없어요.","MISSING_KEY:GEMINI_MODEL":"AI 서버에 GEMINI_MODEL 설정이 없어요.",
   GEMINI_RATE_LIMIT:"Gemini 요청이 잠시 몰렸어요. 1분 뒤 다시 보내 주세요.",SERVER_ERROR:"AI 서버에서 오류가 났어요. 다시 시도해 주세요.",EMPTY_INPUT:"보낼 내용이 비어 있어요."};
-const errText=e=>ERR[e]||("문제가 생겼어요("+e+"). 다시 시도해 주세요.");
+Object.assign(ERR,{SERVER_HTML:"AI 서버가 답 대신 웹페이지를 돌려줬어요(구글 쪽 일시 오류이거나 배포 권한 문제). 잠시 뒤 다시 보내 주세요.",BAD_RESPONSE:"AI 서버 답을 읽지 못했어요. 다시 보내 주세요.",CTX_ERROR:"기록을 읽다가 오류가 났어요. 잠시 뒤 다시 열어 주세요.",TRUNCATED:"답이 너무 길어져 중간에 멈췄어요. 다시 보내 주세요."});
+const errText=e=>ERR[e]||(/^GEMINI_HTTP_5|MODEL_ERROR/.test(String(e))?"Gemini가 잠깐 바빠서 예비 모델까지 모두 답하지 못했어요. 1~2분 뒤 다시 보내 주세요.":/^GEMINI_HTTP_4/.test(String(e))?"Gemini가 요청을 거절했어요("+e+"). 같은 일이 반복되면 알려 주세요.":"문제가 생겼어요("+e+"). 다시 시도해 주세요.");
 
 /* ---------- 앱 기록 보정 (2026-11-25(3)) ----------
    기록 서버가 영양제·술을 TRUE/FALSE로 바꿔 저장해 버리는 문제 → 저장 직후 원래 값(이름·잔 수)을 다시 써 넣는다 */
@@ -447,7 +449,7 @@ async function injectHealth(force){const v=$("v-health");if(!v||!enabled())retur
   const r=await call({action:"health_brief",force:!!force},40000);
   if(r.ok&&r.text){hbrief=r;body.textContent=r.text;card.appendChild(el("small",{class:"cap",text:"수면·걸음·심박·앱 기록을 코드가 계산한 값으로 요약 · 진단이 아니에요"}));}
   else if(r.ok&&r.share_off){body.textContent="건강 데이터 공유가 꺼져 있어서 요약하지 않았어요. 내 정보 > AI 설정에서 켤 수 있어요.";}
-  else body.textContent="지금은 요약을 만들지 못했어요("+(r.error||"오류")+"). 잠시 뒤 다시 열어 주세요.";}
+  else{body.textContent=errText(r.error||"SERVER_ERROR");card.appendChild(el("button",{class:"btn-sub",onclick:()=>injectHealth(true)},"다시 만들기"));}}
 function injectBrief(){const v=$("v-brief");if(!v||!enabled())return;
   const old=$("aiBriefTop");if(old)old.remove();
   const items=ST.inbox.filter(x=>x.status==="NEW"||x.status==="SEEN").slice(0,3);
