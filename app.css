@@ -1242,4 +1242,139 @@ body::after{display:none!important}
 .bub.ai.pro .bx{box-shadow:inset 3px 0 0 var(--accent),var(--shadow)}
 .bub.ai.pro .ai-tag{margin:0 0 4px 4px}
 .ai-view{will-change:transform}
+/* ==========================================================
+   디자인 v10 (2026-11-27) — 글래스 대시보드 (스마트홈 대시보드 릴스 기준)
+   흐린 배경 + 반투명 유리 카드 + 색 타일(진녹·연녹·노랑·살구) + 떠 있는 알약 탭바.
+   색 의미: 진녹/연녹 = 좋음, 노랑 = 주의, 살구 = 나쁨. KORA 로고(세이지 선)는 그대로.
+   ========================================================== */
+:root,[data-theme="light"]{
+  --g-deep:#2F7A4E; --g-light:#63C48F; --g-yel:#F1C24F; --g-sal:#EF9C82;
+  --g-deep-ink:#FFFFFF; --g-light-ink:#10301F; --g-yel-ink:#3A2C07; --g-sal-ink:#3D1A10;
+  --bg:#E9E7E0; --card:rgba(255,255,255,.62); --raised:rgba(255,255,255,.72); --surface:rgba(23,24,26,.06); --surface-2:rgba(255,255,255,.55);
+  --ink:#17181A; --sub:rgba(23,24,26,.62); --faint:rgba(23,24,26,.42); --line:rgba(23,24,26,.08);
+  --accent:#2F7A4E; --accent-ink:#2F7A4E; --accent-bg:rgba(99,196,143,.22); --sage:#2F7A4E;
+  --up:#2F7A4E; --down:#C9583E; --warn:#B98A12; --warn-bg:rgba(241,194,79,.25); --bad-bg:rgba(239,156,130,.25);
+  --glass-blur:blur(26px) saturate(150%);
+  --glass-edge:inset 0 1px 0 rgba(255,255,255,.7),0 12px 32px -20px rgba(30,28,20,.35);
+  --tab-bg:rgba(250,249,245,.9); --tab-ink:rgba(23,24,26,.5); --tab-on:rgba(23,24,26,.08);
+  --bg-art:radial-gradient(60% 40% at 15% 30%,rgba(214,186,140,.55),transparent 70%),radial-gradient(55% 45% at 90% 55%,rgba(150,190,160,.45),transparent 70%),radial-gradient(70% 40% at 40% 95%,rgba(230,200,170,.45),transparent 70%);
+}
+[data-theme="dark"]{
+  --g-deep:#2F7A4E; --g-light:#5CC489; --g-yel:#F2C14E; --g-sal:#EE9A7F;
+  --bg:#141513; --card:rgba(44,45,41,.58); --raised:rgba(255,255,255,.07); --surface:rgba(255,255,255,.08); --surface-2:rgba(255,255,255,.06);
+  --ink:#F2F1EB; --sub:rgba(242,241,235,.62); --faint:rgba(242,241,235,.4); --line:rgba(255,255,255,.09);
+  --accent:#5CC489; --accent-ink:#7FD6A5; --accent-bg:rgba(92,196,137,.16); --sage:#5CC489;
+  --up:#7FD6A5; --down:#F2A48C; --warn:#F2C14E; --warn-bg:rgba(242,193,78,.16); --bad-bg:rgba(238,154,127,.16);
+  --glass-edge:inset 0 1px 0 rgba(255,255,255,.06),0 16px 40px -22px rgba(0,0,0,.8);
+  --tab-bg:rgba(30,31,28,.9); --tab-ink:rgba(242,241,235,.55); --tab-on:rgba(255,255,255,.12);
+  --bg-art:radial-gradient(55% 35% at 12% 35%,rgba(120,92,58,.55),transparent 70%),radial-gradient(50% 40% at 92% 60%,rgba(58,92,66,.55),transparent 70%),radial-gradient(70% 35% at 45% 100%,rgba(96,74,52,.45),transparent 70%);
+}
+/* 배경: html에만 (노치 규칙) — 위쪽은 --bg 단색이 되도록 무늬를 아래에 둔다 */
+html{background:var(--bg-art),var(--bg)!important;background-attachment:fixed!important;min-height:100%}
+/* 유리 카드 */
+.card,.hero,.b-hero>.card,[data-theme="dark"] .card,[data-theme="dark"] .hero,.hero.quote,[data-theme="dark"] .hero.quote{
+  background:var(--card)!important;border:1px solid var(--line)!important;box-shadow:var(--glass-edge)!important;border-radius:24px!important;
+  -webkit-backdrop-filter:var(--glass-blur,blur(26px) saturate(150%));backdrop-filter:var(--glass-blur,blur(26px) saturate(150%))}
+[data-theme="dark"] .card,[data-theme="dark"] .hero{-webkit-backdrop-filter:blur(26px) saturate(140%);backdrop-filter:blur(26px) saturate(140%)}
+.mini,.metric,.insight,.chips button,.chip,.sync,.hdr .av,.sg{background:var(--raised)!important;border:1px solid var(--line)!important}
+/* 제목: 대시보드처럼 크고 단단하게 */
+.page-title{font-size:32px;font-weight:750;letter-spacing:-.045em}
+.hhd .gr{font-size:28px;font-weight:700}
+.card-hd h3,.sec-hd h3{font-weight:700}
+.card-hd>.ico{background:var(--surface)!important;color:var(--ink)!important;border-radius:50%}
+/* 오늘의 한 문장: 세로선을 연녹으로 */
+.hero.quote::before{content:""!important;display:block!important;position:absolute!important;left:14px!important;top:24px!important;bottom:24px!important;right:auto!important;width:4px!important;height:auto!important;border-radius:4px!important;background:var(--g-light)!important;opacity:1!important}
+.hero.quote .tag,.hero.quote .tag .ico{color:var(--accent-ink)!important}
+/* 링·막대: 노랑 링 + 녹색 막대 (릴스의 Solar 링) */
+.ring .trk{stroke:var(--surface)!important}
+.ring .val{stroke:var(--g-yel)!important}
+.cl .bar,.bar{background:var(--surface)!important}
+.cl .bar i,.bar i,.bars i,.ring .fg{background:var(--g-deep)!important}
+[data-theme="dark"] .cl .bar i,[data-theme="dark"] .bar i{background:var(--g-light)!important}
+/* ---- 색 타일 ---- 주요 건강 지표 3칸: 진녹 · 연녹 · 노랑 */
+.kn{border:0!important;box-shadow:none!important;border-radius:20px!important;padding:14px!important}
+.kns .kn:nth-child(1){background:var(--g-deep)!important;color:#fff}
+.kns .kn:nth-child(2){background:var(--g-light)!important;color:var(--g-light-ink)}
+.kns .kn:nth-child(3){background:var(--g-yel)!important;color:var(--g-yel-ink)}
+.kns .kn *{color:inherit!important}
+.kns .kn small,.kns .kn span,.kns .kn i{opacity:.78}
+.kns .kn .ico{background:rgba(255,255,255,.22)!important;border-radius:50%;padding:3px;width:24px!important;height:24px!important}
+.kns .kn b{font-size:22px;font-weight:750;letter-spacing:-.03em}
+/* 빠른 기록 6칸: 기록한 칸은 색으로 꽉 채우고, 안 한 칸은 유리 */
+.qk{background:var(--raised)!important;border:1px solid var(--line)!important;box-shadow:none!important;border-radius:20px!important;min-height:84px}
+.qk .qi{background:var(--surface)!important;color:var(--ink)!important}
+.qk.on{border-color:transparent!important}
+.qgrid .qk.on:nth-child(1){background:var(--g-deep)!important;color:#fff}
+.qgrid .qk.on:nth-child(2){background:var(--g-light)!important;color:var(--g-light-ink)}
+.qgrid .qk.on:nth-child(3){background:var(--g-yel)!important;color:var(--g-yel-ink)}
+.qgrid .qk.on:nth-child(4){background:var(--g-sal)!important;color:var(--g-sal-ink)}
+.qgrid .qk.on:nth-child(5){background:var(--g-yel)!important;color:var(--g-yel-ink)}
+.qgrid .qk.on:nth-child(6){background:var(--g-light)!important;color:var(--g-light-ink)}
+.qgrid .qk.on *{color:inherit!important}
+.qgrid .qk.on small{opacity:.78}
+.qgrid .qk.on .qi{background:rgba(255,255,255,.22)!important}
+/* 최근 7일: 좋음 진녹 · 괜찮음 연녹 · 주의 노랑 · 나쁨 살구 */
+.wd .b{border-radius:8px 8px 5px 5px!important;max-width:22px}
+.wd .b.lv1{background:var(--g-deep)!important}.wd .b.lv2{background:var(--g-light)!important}
+.wd .b.lv3{background:var(--g-yel)!important;opacity:.75}.wd .b.lv4{background:var(--g-yel)!important}.wd .b.lv5{background:var(--g-sal)!important}
+.wd .b.none{background:var(--surface)!important}
+/* 하루 타임라인 점 */
+.tl.done .tdot{background:var(--g-deep)!important;color:#fff!important}
+.tl.now .tdot{background:var(--g-yel)!important;color:var(--g-yel-ink)!important;box-shadow:0 0 0 4px rgba(241,194,79,.25)!important}
+.tl:not(:last-child)::after{background:var(--line)!important}
+/* 배지·알림 */
+.badge{background:var(--accent-bg)!important;color:var(--accent-ink)!important}
+.badge.warn{background:var(--warn-bg)!important;color:var(--warn)!important}
+.badge.bad{background:var(--bad-bg)!important;color:var(--down)!important}
+.alert{background:var(--bad-bg)!important;border:0!important;border-radius:14px!important}
+/* 버튼: 녹색 알약 */
+.primary,[data-theme="dark"] .primary,.btn-main,.ai-btn,.ai-send{background:var(--g-deep)!important;color:#fff!important;border-radius:999px!important}
+.toggle.on{background:var(--g-light)!important}
+.seg,.seg-wrap{background:var(--surface)!important;border-radius:999px!important}
+.seg button.on{background:var(--raised)!important;border-radius:999px!important}
+/* 하단 탭: 화면에서 떠 있는 유리 알약 + 선택 칸은 밝은 알약 */
+.tabbar,[data-theme="dark"] .tabbar{left:50%!important;right:auto!important;transform:translateX(-50%);width:min(calc(100% - 24px),520px)!important;
+  bottom:calc(10px + env(safe-area-inset-bottom))!important;border-radius:999px!important;padding:6px!important;
+  background:var(--tab-bg)!important;border:1px solid var(--line)!important;box-shadow:0 18px 40px -18px rgba(0,0,0,.55)!important;
+  -webkit-backdrop-filter:blur(24px) saturate(160%)!important;backdrop-filter:blur(24px) saturate(160%)!important}
+.tabbar .in{max-width:none!important}
+.tabbar a{border-radius:999px!important;padding:7px 0!important;color:var(--tab-ink)!important;font-size:10.5px!important}
+.tabbar a .ico{width:22px!important;height:22px!important}
+.tabbar a.on,[data-theme="dark"] .tabbar a.on{background:var(--tab-on)!important;color:var(--ink)!important}
+.tabbar a.on .ico,[data-theme="dark"] .tabbar a.on .ico{color:var(--ink)!important}
+.tabbar a.on::after,[data-theme="dark"] .tabbar a.on::after{display:block!important;content:""!important;position:absolute;top:8px!important;bottom:auto!important;left:calc(50% + 13px)!important;width:6px!important;height:6px!important;border-radius:50%;background:var(--g-light)!important}
+/* 기록 버튼: 녹색 동그라미 (릴스 오른쪽 아래 버튼) */
+.fab,[data-theme="dark"] .fab{border-radius:50%!important;background:var(--g-deep)!important;color:#fff!important;bottom:calc(86px + env(safe-area-inset-bottom))!important;
+  box-shadow:0 0 0 5px rgba(47,122,78,.18),0 14px 28px -12px rgba(0,0,0,.6)!important}
+/* KORA 오브·시트·대화도 유리로 */
+.ai-orb{background:var(--tab-bg)!important;-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+.sheet,[data-theme="light"] .sheet,:root:not([data-theme="dark"]) .sheet,[data-theme="dark"] .sheet{background:var(--tab-bg)!important;-webkit-backdrop-filter:blur(30px) saturate(150%)!important;backdrop-filter:blur(30px) saturate(150%)!important}
+[data-theme="light"] .sheet,:root:not([data-theme="dark"]) .sheet{background:rgba(246,245,241,.86)!important}
+[data-theme="dark"] .sheet{background:rgba(26,27,24,.88)!important}
+.bub.me .bx{background:var(--g-deep)!important;color:#fff!important}
+.bub.ai .bx{background:var(--card)!important}
+.ai-hd,.ai-compose{background:var(--bg)!important}
+html[data-theme] .hero.quote::before{background:var(--g-light)!important;background-image:none!important;filter:none!important;opacity:1!important}
+/* ===== 동작 v10 (2026-11-27) — motion.js 짝 ===== */
+.tabbar .in{position:relative}
+.tab-pill{position:absolute;top:0;bottom:0;left:0;width:0;border-radius:999px;background:var(--tab-on);z-index:0;pointer-events:none;
+  transition:transform .6s cubic-bezier(.34,1.42,.5,1),width .6s cubic-bezier(.34,1.42,.5,1),opacity .2s}
+.tab-pill.no-tr{transition:none!important}
+.tabbar a{z-index:1;transition:color .3s}
+.tabbar a.on,[data-theme="dark"] .tabbar a.on{background:transparent!important}
+.tabbar a.on::after,[data-theme="dark"] .tabbar a.on::after{animation:dotPop .45s cubic-bezier(.34,1.6,.5,1) both .15s}
+@keyframes dotPop{from{transform:scale(0)}to{transform:scale(1)}}
+/* 예전 벤토 등장 애니메이션(다시 그릴 때마다 깜빡임) 끄기 — 등장은 motion.js가 맡음 */
+.bento>.bx{animation:none!important}
+/* 눌림 */
+.qk,.kn,.card.tap,.li.tap,.chips button,.primary,.btn-main,.fab,.iconbtn,.seg button{transition:transform .18s cubic-bezier(.2,.8,.2,1),background-color .35s,color .35s}
+.qk:active,.kn:active,.chips button:active,.seg button:active{transform:scale(.95)}
+.card.tap:active,.li.tap:active{transform:scale(.985)}
+.primary:active,.btn-main:active,.iconbtn:active{transform:scale(.96)}
+.fab:active{transform:scale(.9)}
+/* 걸음 막대: 목표 달성 진녹 · 못 미침 노랑 · 오늘 연녹 */
+.sb .bb{background:var(--g-yel)!important;opacity:.85}
+.sb.hit .bb{background:var(--g-deep)!important;opacity:1}
+.sb.today .bb{background:var(--g-light)!important;opacity:1}
+@media (prefers-reduced-motion:reduce){.tab-pill{transition:none}.tabbar a.on::after{animation:none}}
 /* ===== 노치 보호 (2026-11-22-7 · 2026-11-25 KORA: 배경 단색) — 이 블록은 항상 파일 맨 끝에 둘 것 ===== body::before = 상태바(노치) 가림막 전용. 배경은 html에만 그린다. 디자인 바꿀 때 body::before를 배경으로 쓰지 말 것. */ :root{--sat:env(safe-area-inset-top,0px)} html{background:var(--bg)} body{background:transparent} body::before{content:""!important;position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:auto!important; height:var(--sat)!important;background:var(--bg)!important;z-index:60!important;pointer-events:none!important;display:block!important} .wrap{padding-top:calc(var(--sat) + var(--sp-2))!important} .toast{top:calc(var(--sat) + 12px)} #ptr{padding-top:calc(var(--sat) + 8px)}

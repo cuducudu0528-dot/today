@@ -3,7 +3,7 @@
    점수 계산식: docs/scoring.md 와 아래 SCORE 모듈이 같아야 한다. */
 (function(){
 "use strict";
-const APP_VER="2026-11-26-2";
+const APP_VER="2026-11-27-1";
 const DEF_URL="https://script.google.com/macros/s/AKfycbxgoPMdod-SPlKH4gcsmEH5bg1GVYMmRDgropKc4qbqLEBAKAQlR95xIzrz75Zfh2o9dg/exec";
 const WEEK=["일","월","화","수","목","금","토"];
 const COND=[[1,"😫","지침"],[2,"😮‍💨","피곤"],[3,"🙂","보통"],[4,"😊","좋음"],[5,"🤩","최고"]];
@@ -107,7 +107,7 @@ const mq=window.matchMedia?matchMedia("(prefers-color-scheme: dark)"):null;
 const themePref=()=>ls("ys_theme")||"system";
 function applyTheme(){const p=themePref();const dark=p==="dark"||(p==="system"&&mq&&mq.matches);
   document.documentElement.setAttribute("data-theme",dark?"dark":"light");
-  $("themeColor").setAttribute("content",dark?"#121316":"#F3F2EE");
+  $("themeColor").setAttribute("content",dark?"#141513":"#E9E7E0");
   refreshCharts();}
 if(mq){const f=()=>{if(themePref()==="system")applyTheme();};mq.addEventListener?mq.addEventListener("change",f):mq.addListener(f);}
 function setTheme(p){ls("ys_theme",p);applyTheme();renderMe();}
