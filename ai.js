@@ -440,22 +440,65 @@ function injectHome(){const v=$("v-home");if(!v||!enabled())return;
   const q=v.querySelector(".hero.quote")||v.querySelector(".hero");
   const old=q&&q.querySelector(".ai-ask");if(old)old.remove();if(q)q.appendChild(el("button",{class:"ai-ask",onclick:()=>openChat()},el("span",{class:"mini-orb",html:A.mark||""}),el("span",{text:(ST.persona&&ST.persona.name?ST.persona.name+"에게":"AI에게")+" 이야기하기"}),icon("chev")));}
 let hbrief=null;
+/* 2026-11-27-3: 오늘 몸 상태 — 긴 글 대신 [한 줄 판정 · 좋은 점 · 아쉬운 점 · 오늘 신경 쓸 것] */
+function hbView(r){const w=el("div",{class:"hb2"});
+  const MOOD={good:["좋음","good"],ok:["보통","ok"],care:["주의","care"]};const m=MOOD[r.mood]||MOOD.ok;
+  w.appendChild(el("div",{class:"hb2-head"},el("span",{class:"hb2-mood "+m[1],text:m[0]}),el("b",{text:r.headline||""})));
+  const row=(cls,ic,lab,list,fmt)=>{if(!list||!list.length)return;const g=el("div",{class:"hb2-grp "+cls});g.appendChild(el("div",{class:"hb2-lb",html:ico(ic,"ico-sm")+"<span>"+lab+"</span>"}));
+    const ul=el("div",{class:"hb2-items"});list.forEach(x=>ul.appendChild(fmt(x)));g.appendChild(ul);w.appendChild(g);};
+  const kv=x=>el("div",{class:"hb2-it"},el("span",{class:"k",text:x.label}),el("span",{class:"v",text:x.value}));
+  row("good","check","좋은 점",r.good,kv);
+  row("bad","zap","아쉬운 점",r.bad,kv);
+  row("todo","spark","오늘 신경 쓸 것",r.todo,t=>el("div",{class:"hb2-it"},el("span",{class:"k",text:t})));
+  if(r.note)w.appendChild(el("div",{class:"hb2-note",text:r.note}));
+  return w;}
 async function injectHealth(force){const v=$("v-health");if(!v||!enabled())return;
   const old=$("aiHealthBrief");if(old)old.remove();
-  const card=el("div",{class:"card ai-hb",id:"aiHealthBrief"},el("div",{class:"card-hd",html:ico("spark","c-accent")+"<h3>오늘 몸 상태 · AI 요약</h3>"}));
-  const body=el("p",{class:"hbt",text:hbrief&&!force?hbrief.text:"기록을 읽는 중…"});card.appendChild(body);
+  const card=el("div",{class:"card ai-hb",id:"aiHealthBrief"},el("div",{class:"card-hd",html:ico("spark","c-accent")+"<h3>오늘 몸 상태</h3>"}));
+  const hd=card.querySelector(".card-hd");const re=el("button",{class:"hb2-re","aria-label":"다시 만들기",html:ico("refresh","ico-sm"),onclick:()=>injectHealth(true)});hd.appendChild(re);
+  const body=el("div",{class:"hb2-body"});card.appendChild(body);
   const sub=v.querySelector(".page-sub");sub?sub.after(card):v.prepend(card);
-  if(hbrief&&!force&&hbrief.text)return;
+  const show=r=>{body.innerHTML="";if(r.headline){body.appendChild(hbView(r));}else body.appendChild(el("p",{class:"hbt",text:r.text||""}));};
+  if(hbrief&&!force&&(hbrief.headline||hbrief.text)){show(hbrief);return;}
+  body.appendChild(el("p",{class:"hbt cap",text:"기록을 읽는 중…"}));
   const r=await call({action:"health_brief",force:!!force},40000);
-  if(r.ok&&r.text){hbrief=r;body.textContent=r.text;card.appendChild(el("small",{class:"cap",text:"수면·걸음·심박·앱 기록을 코드가 계산한 값으로 요약 · 진단이 아니에요"}));}
-  else if(r.ok&&r.share_off){body.textContent="건강 데이터 공유가 꺼져 있어서 요약하지 않았어요. 내 정보 > AI 설정에서 켤 수 있어요.";}
-  else{body.textContent=errText(r.error||"SERVER_ERROR");card.appendChild(el("button",{class:"btn-sub",onclick:()=>injectHealth(true)},"다시 만들기"));}}
+  if(r.ok&&(r.headline||r.text)){hbrief=r;show(r);}
+  else if(r.ok&&r.share_off){body.innerHTML="";body.appendChild(el("p",{class:"hbt",text:"건강 데이터 공유가 꺼져 있어서 요약하지 않았어요. 내 정보 > AI 설정에서 켤 수 있어요."}));}
+  else{body.innerHTML="";body.appendChild(el("p",{class:"hbt",text:errText(r.error||"SERVER_ERROR")}));}}
+/* 2026-11-27-3: 브리핑 탭 KORA 소식 — 큰 카드 여러 장 대신 한 장에 짧은 줄로. 줄을 누르면 펼쳐서 답하기·확인 */
+const KTYPE={moment_morning:["sun","아침"],moment_event:["cal","일정 전"],moment_night:["moon","하루 마무리"],moment_sync:["refresh","동기화"],ai_thought:["spark","KORA 생각"],ai_followup:["bell","약속"],followup:["bell","약속"],price_drop:["zap","항공권"],schedule:["cal","일정"],persona_changed:["user","성격 변경"],test:["bell","테스트"]};
+function kRel(iso){const t=new Date(iso);if(isNaN(t))return"";const m=Math.round((Date.now()-t)/60000);if(m<1)return"방금";if(m<60)return m+"분 전";if(m<24*60&&t.toDateString()===new Date().toDateString())return String(t.getHours()).padStart(2,"0")+":"+String(t.getMinutes()).padStart(2,"0");return(t.getMonth()+1)+"/"+t.getDate();}
 function injectBrief(){const v=$("v-brief");if(!v||!enabled())return;
   const old=$("aiBriefTop");if(old)old.remove();
-  const items=ST.inbox.filter(x=>x.status==="NEW"||x.status==="SEEN").slice(0,3);
-  const box=el("div",{id:"aiBriefTop",class:"ai-brief"});
-  if(items.length)items.forEach(x=>box.appendChild(questionCard(x)));
-  else box.appendChild(el("button",{class:"card ai-entry",onclick:()=>openChat()},el("span",{class:"mini-orb",html:A.mark||""}),el("div",null,el("b",{text:"AI 파트너"}),el("small",{text:"지금은 먼저 물어볼 게 없어요. 궁금한 걸 물어보세요."})),icon("chev")));
+  const all=ST.inbox.filter(x=>(x.status==="NEW"||x.status==="SEEN")&&x.status!=="SCHEDULED");
+  const box=el("div",{id:"aiBriefTop",class:"card kn2"});
+  const hd=el("div",{class:"card-hd"},el("span",{class:"mini-orb",html:A.mark||""}),el("h3",{text:"KORA 소식"}));
+  if(all.length)hd.appendChild(el("span",{class:"badge",text:String(all.length)}));
+  box.appendChild(hd);
+  if(!all.length){box.appendChild(el("button",{class:"kn2-empty",onclick:()=>openChat()},el("span",{text:"새 소식이 없어요 · 궁금한 걸 물어보세요"}),icon("chev")));}
+  else{
+    const persona=all.filter(x=>x.type==="persona_changed");
+    const msgs=all.filter(x=>x.type!=="persona_changed");
+    const list=el("div",{class:"kn2-list"});
+    const LIMIT=3;let expanded=false;
+    const rowOf=it=>{const t=KTYPE[it.type]||["bell","알림"];
+      const r=el("div",{class:"kn2-row"+(it.status==="NEW"?" new":"")});
+      const top=el("button",{class:"kn2-top"},el("span",{class:"kn2-ic",html:ico(t[0],"ico-sm")}),el("span",{class:"kn2-tx",text:it.message}),el("span",{class:"kn2-tm",text:kRel(it.created_at)}));
+      const acts=el("div",{class:"kn2-acts"},
+        el("button",{class:"ai-btn",onclick:()=>{call({action:"inbox_act",id:it.id,act:"done"});drop(it);openChat("(KORA 소식에 대한 답) "+it.message+"\n→ ");}},"답하기"),
+        el("button",{class:"ai-btn ghost",onclick:()=>{call({action:"inbox_act",id:it.id,act:"done"});drop(it);}},"확인"),
+        el("button",{class:"ai-btn ghost",onclick:()=>{if(!confirm("'"+t[1]+"' 소식은 그만 받을까요?"))return;call({action:"inbox_act",id:it.id,act:"mute"});drop(it);}},"이런 소식 그만"));
+      top.onclick=()=>{const open=r.classList.toggle("open");if(open&&it.status==="NEW"){it.status="SEEN";r.classList.remove("new");orbFromInbox();}};
+      r.appendChild(top);r.appendChild(acts);return r;};
+    const drop=it=>{ST.inbox=ST.inbox.filter(x=>x.id!==it.id);orbFromInbox();injectBrief();};
+    const paint=()=>{list.innerHTML="";(expanded?msgs:msgs.slice(0,LIMIT)).forEach(it=>list.appendChild(rowOf(it)));};
+    paint();box.appendChild(list);
+    const foot=el("div",{class:"kn2-foot"});
+    if(msgs.length>LIMIT){const more=el("button",{class:"kn2-more",text:"이전 소식 "+(msgs.length-LIMIT)+"개 더 보기"});more.onclick=()=>{expanded=!expanded;paint();more.textContent=expanded?"접기":"이전 소식 "+(msgs.length-LIMIT)+"개 더 보기";};foot.appendChild(more);}
+    if(msgs.length>1)foot.appendChild(el("button",{class:"kn2-more",text:"모두 확인",onclick:async()=>{const ids=msgs.map(x=>x.id);ST.inbox=ST.inbox.filter(x=>ids.indexOf(x.id)<0);orbFromInbox();injectBrief();for(const id of ids)call({action:"inbox_act",id:id,act:"done"});}}));
+    if(foot.childNodes.length)box.appendChild(foot);
+    if(persona.length){const pw=el("div",{class:"kn2-persona"});persona.forEach(p=>pw.appendChild(questionCard(p)));box.appendChild(pw);}
+  }
   const sub=v.querySelector(".page-sub");sub?sub.after(box):v.prepend(box);}
 
 /* ---------- 내 정보: 연결·설정·사용량 (S119·S125·S129) ---------- */
