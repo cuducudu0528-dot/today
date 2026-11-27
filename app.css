@@ -1421,4 +1421,19 @@ html::before{content:"";position:fixed;left:0;right:0;top:0;bottom:0;z-index:-1;
 .kn2-foot{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding-top:10px;margin-top:2px}
 .kn2-more{background:none;border:0;color:var(--accent-ink);font-weight:700;font-size:13.5px;padding:4px 0}
 .kn2-persona{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+/* ===== 2026-11-27-4 ===== */
+/* 건강 데이터 연동: 다시 불러오기는 카드 머리 오른쪽에 (목록 사이에 끼어 있던 버튼 정리), 불러오는 동안 아이콘이 돈다 */
+.sync-btn{margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:5px;min-height:36px;padding:0 12px 0 10px;border-radius:999px;background:var(--surface);color:var(--ink);font-weight:700;font-size:13px;transition:transform .18s cubic-bezier(.2,.8,.2,1)}
+.sync-btn:active{transform:scale(.94)}
+.sync-btn .ico{width:16px;height:16px}
+.sync-btn.spin{pointer-events:none;opacity:.8}
+.sync-btn.spin .ico{animation:syncSpin .8s linear infinite}
+@keyframes syncSpin{to{transform:rotate(360deg)}}
+/* 누를 때 번지는 물결 (motion.js) */
+.rip-host{position:absolute;inset:0;overflow:hidden;pointer-events:none;border-radius:inherit;z-index:0}
+.rip{position:absolute;border-radius:50%;background:currentColor;pointer-events:none;opacity:0}
+.pm,.toggle,.lnk,.btn-sub,.sync-btn,.chips button,.seg button,.x{transition:transform .18s cubic-bezier(.2,.8,.2,1),background-color .35s,color .35s}
+.pm:active,.btn-sub:active,.x:active{transform:scale(.92)}
+.toggle:active{transform:scale(.94)}
+@media (prefers-reduced-motion:reduce){.sync-btn.spin .ico{animation:none}}
 /* ===== 노치 보호 (2026-11-22-7 · 2026-11-25 KORA: 배경 단색) — 이 블록은 항상 파일 맨 끝에 둘 것 ===== body::before = 상태바(노치) 가림막 전용. 배경은 html에만 그린다. 디자인 바꿀 때 body::before를 배경으로 쓰지 말 것. */ :root{--sat:env(safe-area-inset-top,0px)} html{background:var(--bg)} body{background:transparent} body::before{content:""!important;position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:auto!important; height:var(--sat)!important;background:var(--bg)!important;z-index:2147483000!important;transform:translateZ(0)!important;pointer-events:none!important;display:block!important} .wrap{padding-top:calc(var(--sat) + var(--sp-2))!important} .toast{top:calc(var(--sat) + 12px)} #ptr{padding-top:calc(var(--sat) + 8px)}
