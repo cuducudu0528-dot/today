@@ -166,3 +166,92 @@
   if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
   if(document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ movePill(true); });
 })();
+
+/* ==========================================================
+   KORA 동작 v11 (2026-11-27-4) — 누르는 모든 것에 움직임
+   5) 누르면: 손가락 자리에서 물결이 번지고, 버튼 속 아이콘이 톡 튄다
+   6) 누른 결과: 물·커피 숫자는 위로 톡 올라오고, 켜진 칩은 통통, 스위치는 미끄러지듯 넘어간다
+   ========================================================== */
+(function(){
+  "use strict";
+  var RM = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(RM || !(document.body && document.body.animate)) return;
+  var EASE = "cubic-bezier(.2,.8,.2,1)", SPRING = "cubic-bezier(.34,1.56,.5,1)";
+  var SEL = "button, a[href], [data-act], .tap, [role=button]";
+
+  /* ---------- 5) 물결 + 아이콘 ---------- */
+  document.addEventListener("pointerdown", function(e){
+    var el = e.target.closest && e.target.closest(SEL);
+    if(!el || el.disabled || el.closest(".tabbar")) return;
+    var r = el.getBoundingClientRect();
+    if(r.width < 24 || r.height < 20) return;
+    var cs = getComputedStyle(el);
+    if(cs.position === "static") el.style.position = "relative";
+    var d = Math.max(r.width, r.height) * 2.4;
+    var host = document.createElement("span"); host.className = "rip-host";
+    var s = document.createElement("span"); s.className = "rip";
+    s.style.width = s.style.height = d + "px";
+    s.style.left = (e.clientX - r.left - d/2) + "px"; s.style.top = (e.clientY - r.top - d/2) + "px";
+    host.appendChild(s); el.appendChild(host);
+    var a = s.animate([{transform:"scale(0)", opacity:.22},{transform:"scale(1)", opacity:0}], {duration:620, easing:EASE});
+    a.onfinish = a.oncancel = function(){ host.remove(); };
+    setTimeout(function(){ if(host.isConnected) host.remove(); }, 900);
+    if(el.classList.contains("sync-btn")) return;            // 이 버튼 아이콘은 불러오는 동안 돈다
+    var ic = el.querySelector(".ico");
+    if(ic) ic.animate([
+      {transform:"none"},
+      {transform:"rotate(-12deg) scale(1.2)", offset:.35},
+      {transform:"rotate(7deg) scale(1.05)", offset:.7},
+      {transform:"none"}
+    ], {duration:480, easing:EASE});
+  }, {passive:true, capture:true});
+
+  /* ---------- 6) 다시 그려진 뒤 바뀐 것만 움직이기 ---------- */
+  function txt(el){ return el ? el.textContent : ""; }
+  function snap(root){
+    if(!root) return null;
+    var m = function(sel, f){ return Array.prototype.map.call(root.querySelectorAll(sel), f); };
+    return {
+      qk: m(".qgrid .qk", function(q){ return txt(q.querySelector("small")); }),
+      big: m(".counter .big", txt),
+      tg: m(".toggle", function(t){ return t.classList.contains("on"); }),
+      ch: m(".chips button, .seg button, .kn", function(b){ return b.classList.contains("on"); })
+    };
+  }
+  function each(root, sel, prev, now, fn){
+    var els = root.querySelectorAll(sel);
+    if(!prev || prev.length !== els.length) return;
+    Array.prototype.forEach.call(els, function(el, i){ if(prev[i] !== now[i]) fn(el, now[i]); });
+  }
+  function play(root, prev){
+    var now = snap(root); if(!now || !prev) return now;
+    each(root, ".qgrid .qk", prev.qk, now.qk, function(q){
+      var sm = q.querySelector("small");
+      if(sm) sm.animate([{transform:"translateY(8px)", opacity:0},{transform:"none", opacity:1}], {duration:420, easing:SPRING});
+      var ic = q.querySelector(".qi");
+      if(ic) ic.animate([{transform:"none"},{transform:"translateY(-5px) scale(1.15)", offset:.4},{transform:"none"}], {duration:480, easing:EASE});
+    });
+    each(root, ".counter .big", prev.big, now.big, function(b){
+      b.animate([{transform:"translateY(10px) scale(.9)", opacity:.2},{transform:"translateY(-2px) scale(1.06)", opacity:1, offset:.6},{transform:"none"}], {duration:460, easing:EASE});
+    });
+    each(root, ".toggle", prev.tg, now.tg, function(t, on){
+      try{ t.animate([{transform:"translateX(" + (on ? -20 : 20) + "px)"},{transform:"none"}], {duration:420, easing:SPRING, pseudoElement:"::after"}); }catch(e){}
+      t.animate([{transform:"scale(.92)"},{transform:"none"}], {duration:380, easing:SPRING});
+    });
+    each(root, ".chips button, .seg button, .kn", prev.ch, now.ch, function(b, on){
+      if(on) b.animate([{transform:"scale(.88)"},{transform:"scale(1.07)", offset:.55},{transform:"none"}], {duration:420, easing:EASE});
+    });
+    return now;
+  }
+  var last = new Map();
+  function rootOf(n){ return n && n.closest ? (n.closest(".view") || n.closest("#sheetBody")) : null; }
+  var mo = ("MutationObserver" in window) ? new MutationObserver(function(list){
+    var seen = new Set();
+    list.forEach(function(m){ var r = m.target.id === "sheetBody" ? m.target : rootOf(m.target); if(r) seen.add(r); });
+    seen.forEach(function(r){ last.set(r, play(r, last.get(r))); });
+  }) : null;
+  function watch(){
+    Array.prototype.forEach.call(document.querySelectorAll(".view, #sheetBody"), function(r){ last.set(r, snap(r)); if(mo) mo.observe(r, {childList:true}); });
+  }
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", watch); else watch();
+})();
