@@ -3,7 +3,7 @@
    점수 계산식: docs/scoring.md 와 아래 SCORE 모듈이 같아야 한다. */
 (function(){
 "use strict";
-const APP_VER="2026-11-27-4";
+const APP_VER="2026-11-27-5";
 const DEF_URL="https://script.google.com/macros/s/AKfycbxgoPMdod-SPlKH4gcsmEH5bg1GVYMmRDgropKc4qbqLEBAKAQlR95xIzrz75Zfh2o9dg/exec";
 const WEEK=["일","월","화","수","목","금","토"];
 const COND=[[1,"😫","지침"],[2,"😮‍💨","피곤"],[3,"🙂","보통"],[4,"😊","좋음"],[5,"🤩","최고"]];
@@ -171,10 +171,23 @@ function syncState(){
 
 /* ---------- 토스트·시트 ---------- */
 let toastT=null;
-function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove("on"),1800);}
+/* 2026-11-27-5 #0335: 기록 뒤 '되돌리기' — undo 함수를 주면 토스트에 버튼이 붙고 4초 머문다 */
+function toast(t,undo){const e=$("toast");e.textContent="";const sp=document.createElement("span");sp.textContent=t;e.appendChild(sp);
+  if(undo){const b=document.createElement("button");b.className="t-undo";b.textContent="되돌리기";b.onclick=ev=>{ev.stopPropagation();e.classList.remove("on");undo();};e.appendChild(b);}
+  e.classList.toggle("has-act",!!undo);e.classList.add("on");clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove("on"),undo?4000:1800);}
 function setStatus(t,state){$("status").textContent=t;$("sDot").className="sd"+(state==="off"?" off":state==="wait"?" wait":"");}
-function openSheet(title,html){$("sheetTitle").textContent=title;$("sheetBody").innerHTML=html;$("sheetBody").scrollTop=0;$("scrim").classList.add("on");$("sheet").classList.add("on");}
-function closeSheet(){sheetFn=null;$("scrim").classList.remove("on");$("sheet").classList.remove("on");}
+let sheetBack=null;
+function openSheet(title,html){if(!$("sheet").classList.contains("on"))sheetBack=document.activeElement;$("sheetTitle").textContent=title;$("sheetBody").innerHTML=html;$("sheetBody").scrollTop=0;$("scrim").classList.add("on");$("sheet").classList.add("on");}
+function closeSheet(){const was=$("sheet").classList.contains("on");sheetFn=null;$("scrim").classList.remove("on");$("sheet").classList.remove("on");
+  if(was&&sheetBack&&sheetBack.isConnected&&sheetBack.focus)try{sheetBack.focus({preventScroll:true});}catch(e){}sheetBack=null;}
+/* #0907·#0908: 화면 읽기·키보드 — 토스트는 읽어 주고, 시트는 제목과 이어 주고, Esc로 닫는다 */
+$("toast").setAttribute("role","status");$("toast").setAttribute("aria-live","polite");$("sheet").setAttribute("aria-labelledby","sheetTitle");
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("sheet").classList.contains("on")){closeSheet();return;}
+  /* #0960: 입력칸에서 Enter로 바로 저장 (한글 조합 중에는 무시) */
+  if(e.key==="Enter"&&!e.isComposing&&e.keyCode!==229&&e.target&&e.target.id){const m={mealIn:'[data-act="mealSave"]',suppIn:'[data-act="suppAdd"]',lunchIn:"#lunchSave",keyIn:"#keySave"}[e.target.id];
+    const b=m&&document.querySelector(m);if(b){e.preventDefault();b.click();}}
+  /* 눌러서 여는 카드(div)도 Enter·Space로 열리게 */
+  if((e.key==="Enter"||e.key===" ")&&e.target&&e.target.matches&&e.target.matches('[role="button"]')&&e.target.tagName!=="BUTTON"){e.preventDefault();e.target.click();}});
 $("sheetClose").innerHTML=ico("x","ico-sm");$("scrim").onclick=closeSheet;$("sheetClose").onclick=closeSheet;
 
 /* ---------- 라우팅 (탭 6개) ---------- */
@@ -184,10 +197,12 @@ $("tabs").innerHTML=TABS.map(([id,l,i])=>'<a href="#'+id+'" data-tab="'+id+'">'+
 function curTab(){let t=(location.hash||"").replace("#","");t=ALIAS[t]||t;return TABS.some(x=>x[0]===t)?t:"home";}
 function route(keepScroll){const t=curTab();
   document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on",v.id==="v-"+t));
-  document.querySelectorAll(".tabbar a").forEach(a=>a.classList.toggle("on",a.dataset.tab===t));
+  document.querySelectorAll(".tabbar a").forEach(a=>{const on=a.dataset.tab===t;a.classList.toggle("on",on);if(on)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});
   $("fab").style.display=(t==="sleep")?"flex":"none";
   if(!keepScroll)window.scrollTo(0,0);renderTab(t);if(t==="brief")markSeen();}
 window.addEventListener("hashchange",()=>route(false));
+/* #0993: 지금 보고 있는 탭을 한 번 더 누르면 맨 위로 */
+$("tabs").addEventListener("click",e=>{const a=e.target.closest("a");if(a&&a.classList.contains("on")){e.preventDefault();window.scrollTo({top:0,behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});}});
 $("fab").innerHTML=ico("plus");$("fab").onclick=()=>openPicker("빠른 기록",()=>condPicker()+'<div class="lbl" style="margin-left:0">'+ico("pill","ico-sm c-supp")+' 영양제</div>'+(mySupps().length?chips("supp",mySupps(),v=>today.supplement.includes(v)):"")+'<div class="lbl" style="margin-left:0">'+ico("glass","ico-sm c-alc")+' 술</div>'+chips("alc",ALC.map((l,i)=>[i,l]),v=>today.alcohol.lv===+v||(+v===0&&!today.alcohol.lv),"alc5"));
 
 /* ---------- 읽음 표시 ---------- */
@@ -305,6 +320,7 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-pick]");if
 document.addEventListener("click",e=>{const a=e.target.closest("[data-act]");if(!a)return;const act=a.dataset.act;
   if(act==="alc+"){today.alcohol.n=Math.min((today.alcohol.n||0)+1,30);if(!today.alcohol.lv)today.alcohol.lv=2;changed(true);refreshSheet();}
   if(act==="alc-"){today.alcohol.n=Math.max((today.alcohol.n||0)-1,0);changed(true);refreshSheet();}
+  if(act==="suppAll"){const my=mySupps();const all=my.length&&my.every(v=>today.supplement.includes(v));today.supplement=all?[]:my.slice();changed(true);refreshSheet();toast(all?"영양제 기록을 비웠어요":"영양제 "+my.length+"개 모두 먹음으로 기록했어요");}   /* #0403 */
   if(act==="suppAdd"){const i=$("suppIn");const v=i&&i.value.trim();if(v){const a=mySupps();if(!a.includes(v))setMySupps(a.concat([v]));i.value="";refreshSheet();renderTab(curTab());}}
   if(act==="mealOpen"){mealOpen.add(a.dataset.f);renderTab(curTab());}
   if(act==="mealSave"){const i=$("mealIn");if(i){today[i.dataset.f]=i.value.trim();changed(true);closeSheet();}}
@@ -319,10 +335,17 @@ function alcPicker(){const a=today.alcohol;const g=alcGrams(a);
   '<div class="lbl" style="margin-left:0">자세히 <small>선택 · 종류와 잔 수</small></div>'+chips("alct",Object.keys(DRINK),v=>a.type===v)+
   (a.type?'<div class="counter" style="margin-top:12px"><div class="meta"><div class="nm">'+esc(a.type)+'</div><div class="big">'+(a.n||0)+'<small>'+DRINK[a.type][2]+'</small></div></div><button class="pm" data-act="alc-" aria-label="잔 빼기">−</button><button class="pm add" data-act="alc+" aria-label="잔 더하기">＋</button></div>'+
     (g?'<div class="cap" style="margin-top:8px">알코올 약 '+g+'g · 표준잔(10g) '+(Math.round(g/10*10)/10)+'잔 · 이번 주 합계 '+weekAlc()+'g</div>':""):"")+
-  '<div class="cap" style="margin-top:12px">기록은 다음 날 수면·심박과 같이 보여 드릴게요.</div>';}
+  '<div class="cap" style="margin-top:12px">'+esc(alcInsight()||"술 마신 날과 안 마신 날이 3일씩 쌓이면 다음 날 수면 차이를 보여 드릴게요.")+'</div>';}
+/* #0355·#0658: 술 마신 다음 날 수면을 내 기록끼리 비교 (각 3일 이상일 때만) */
+function alcInsight(){const yes=[],no=[];
+  Object.keys(S.days).concat([TODAY]).forEach(d=>{const x=dayData(d);const n=sleepOn(addDays(d,1));if(!x||!n||!n.asleep)return;(x.alcohol&&x.alcohol.lv?yes:no).push(n.asleep);});
+  if(yes.length<3||no.length<3)return"";const df=Math.round(avg(no)-avg(yes));
+  if(Math.abs(df)<10)return"술 마신 다음 날도 수면 시간은 평소와 비슷했어요 ("+yes.length+"번 비교).";
+  return"술 마신 다음 날 평균 수면이 "+hm(Math.abs(df))+" "+(df>0?"짧았어요":"길었어요")+" ("+yes.length+"번 비교).";}
 function weekAlc(){let s=0;for(let i=0;i<7;i++){const d=dayData(addDays(TODAY,-i));const g=d&&alcGrams(d.alcohol);if(g)s+=g;}return s;}
 function suppPicker(){const my=mySupps();
-  return (my.length?'<div class="lbl" style="margin-left:0">오늘 먹은 영양제</div>'+chips("supp",my,v=>today.supplement.includes(v)):'<div class="cap">아래에서 내 영양제를 먼저 골라 주세요.</div>')+
+  const all=my.length&&my.every(v=>today.supplement.includes(v));
+  return (my.length?'<div class="lbl" style="margin-left:0">오늘 먹은 영양제'+(my.length>1?'<button class="lnk" data-act="suppAll">'+(all?"모두 취소":"모두 먹음")+'</button>':"")+'</div>'+chips("supp",my,v=>today.supplement.includes(v)):'<div class="cap">아래에서 내 영양제를 먼저 골라 주세요.</div>')+
   '<div class="lbl" style="margin-left:0">내 영양제 목록 <small>한 번 정하면 매일 체크만</small></div>'+chips("mysupp",Array.from(new Set(SUPP_ALL.concat(my))),v=>my.includes(v),"soft")+
   '<div class="addrow"><input class="field" id="suppIn" maxlength="30" placeholder="직접 입력 (예: 콜라겐)"><button class="btn-sub" data-act="suppAdd">추가</button></div>';}
 function workPicker(){return chips("work",WORK,v=>today.workout.includes(v));}
@@ -334,7 +357,8 @@ const PICKERS={cond:["컨디션 · 기분",condPicker],alc:["술",alcPicker],sup
 /* KORA 로고 마크 (원본 비율 그대로, 색은 테마를 따름) */
 const KORA_MARK='<svg class="kmark" viewBox="0 0 100 100" fill="none" stroke-width="3.3" aria-hidden="true"><rect x="48.35" y="18.4" width="3.3" height="63.2" fill="currentColor"/><path d="M51.65 26.95A23.1 23.1 0 0 1 53.7 72.8M46.3 27.2A23.1 23.1 0 0 0 30.63 37.42M33.67 66.33A23.1 23.1 0 0 0 46.3 72.8" stroke="currentColor"/><path class="kmark-sage" d="M29.24 39.87A23.1 23.1 0 0 0 31.8 64.22" stroke="var(--sage)"/></svg>';
 function homeHeader(){const d=parseYmd(TODAY);const[g]=greeting();const age=healthAge();
-  const sync=lastHealthAt()?'<span class="sync'+(age!=null&&age>SYNC_LATE_H?" late":"")+'">'+ico("refresh","ico-xs")+esc(String(lastHealthAt()).slice(11,16)||"")+' 동기화</span>':"";
+  const late=age!=null&&age>SYNC_LATE_H;   /* #0348: 늦었을 땐 바로 다시 불러올 수 있게 버튼으로 */
+  const sync=(!navigator.onLine?'<span class="sync late">'+ico("cloud","ico-xs")+'오프라인 · 기록은 기기에 저장돼요</span>':"")+(lastHealthAt()?(late?'<button class="sync late" onclick="koraReload()">'+ico("refresh","ico-xs")+esc(String(lastHealthAt()).slice(11,16)||"")+' 동기화 · 늦어요, 다시 불러오기</button>':'<span class="sync">'+ico("refresh","ico-xs")+esc(String(lastHealthAt()).slice(11,16)||"")+' 동기화</span>'):"");
   const unread=(S.briefs||[]).filter(isUnread).length;
   return '<div class="kbrand">'+KORA_MARK+'<span>KORA</span></div><div class="hhd"><div><div class="dt">'+ico("cal","ico-sm")+(d.getMonth()+1)+'월 '+d.getDate()+'일 '+WEEK[d.getDay()]+'요일</div><div class="gr">'+g+', 연서 씨</div>'+sync+'</div><a class="iconbtn" href="#brief" aria-label="브리핑 알림">'+ico("bell")+(unread?'<i class="dot"></i>':"")+'</a><a class="iconbtn" href="#me" aria-label="내 정보">'+ico("user")+'</a></div>';}
 function heroCard(){const L=bodyLine();const ai=briefAI("condition");
@@ -360,17 +384,21 @@ function todoCard(){const hr=new Date().getHours();const L=bodyLine();const out=
   else if(hr<18){if(today.coffee>0)out.push(["coffee","지금부터 카페인은 쉬어요 (밤잠 영향)"]);if(today.water<5)out.push(["drop","물 "+(6-today.water)+"잔 더 마셔요"]);}
   else if(hr<21){if(stT!=null&&stT<8000){const r=8000-stT;out.push(["foot","목표까지 "+fmtN(r)+"보 · 약 "+Math.ceil(r/110)+"분 걷기"]);}if(!today.condition.length)out.push(["list","오늘 컨디션·기분 기록하기"]);}
   else{out.push(["moon","목표 취침 "+tb.bed+" · 30분 전부터 화면 밝기 낮추기"]);if(!today.condition.length)out.push(["list","자기 전 컨디션·기분 한 번 눌러 두기"]);}
+  {const yd=dayData(addDays(TODAY,-1));if(hr<18&&yd&&yd.alcohol&&(yd.alcohol.lv>=2||yd.alcohol.lv===-1)&&today.water<8)out.unshift(["drop","어제 술을 마셨으니 오늘은 물을 2잔 더 챙겨요"]);}   /* #0568 */
   if(!out.length)return"";
   return '<div class="card"><div class="card-hd">'+ico("bulb","c-zap")+'<h3>지금 할 일</h3></div><div class="todo">'+out.slice(0,3).map(([i,t])=>'<div class="td">'+ico(i,"ico-sm")+'<span>'+esc(t)+'</span></div>').join("")+'</div></div>';}
 function quickCard(){const a=today.alcohol;
   const q=(attrs,icon,lab,val,on)=>'<button class="qk'+(on?" on":"")+'" '+attrs+'><span class="qi">'+icon+'</span><b>'+lab+'</b><small>'+val+'</small></button>';
   return '<div class="card"><div class="card-hd">'+ico("plus","c-accent")+'<h3>빠른 기록</h3><span class="cap" id="savedNote">'+esc(savedMsg)+'</span></div><div class="qgrid">'+
-    q('data-act="water+"',ico("drop"),"물",today.water+" / 8잔",today.water>0)+q('data-act="coffee+"',ico("cup"),"커피",today.coffee+"잔",today.coffee>0)+
+    q('data-act="water+" aria-label="물 한 잔 더하기, 꾹 누르면 빼기"',ico("drop"),"물",waterVal(),today.water>0)+q('data-act="coffee+" aria-label="커피 한 잔 더하기, 꾹 누르면 빼기"',ico("cup"),"커피",today.coffee+"잔",today.coffee>0)+
     q('data-act="picker" data-p="cond"',ico("smile"),"컨디션",today.condition.length||today.mood.length?[today.condition.map(n=>COND[n-1][2]).join("·"),today.mood.join("·")].filter(Boolean).join(" / "):"누르기",today.condition.length+today.mood.length>0)+
     q('data-act="picker" data-p="alc"',ico("glass"),"술",alcText(a)||"안 마심",a.lv!==0)+
     q('data-act="picker" data-p="supp"',ico("pill"),"영양제",today.supplement.length?today.supplement.length+"개 먹음":"안 먹음",today.supplement.length>0)+
     q('data-act="picker" data-p="work"',ico("run"),"운동",today.workout.length?today.workout.join("·"):"없음",today.workout.length>0)+
-    '</div><div class="cap" style="margin-top:8px">물·커피는 누를 때마다 1잔씩 늘어요. 빼려면 건강 탭에서요.</div></div>';}
+    '</div><div class="cap" style="margin-top:8px">물·커피는 누를 때마다 1잔씩 늘고, 꾹 누르면 1잔 빠져요.</div></div>';}
+/* #0594·#0958: 지금 시각에 맞는 물 페이스 (7시 0잔 → 21시 8잔) */
+function waterPace(){return Math.round(8*lin(new Date().getHours()+new Date().getMinutes()/60,7,21));}
+function waterVal(){const w=today.water,p=waterPace();if(w>=8)return w+"잔 · 목표 달성";if(p-w>=2)return w+"/8 · 권장 "+p;return w+" / 8잔";}
 const mealOpen=new Set();
 function timelineCard(){const n=sleepOn(TODAY);const tb=targetBed(lastSleeps(7).reduce((a,x)=>a+Math.max(0,420-(x.asleep||0)),0));const hr=new Date().getHours();
   const row=(time,icon,title,body,state)=>'<div class="tl '+(state||"")+'"><div class="tt">'+time+'</div><div class="tdot">'+ico(icon,"ico-xs")+'</div><div class="tb"><b>'+title+'</b>'+body+'</div></div>';
@@ -402,7 +430,14 @@ function nextPlans(){const items=planItems(TODAY);const now=pad(new Date().getHo
 function week7(){const pts=[];for(let i=6;i>=0;i--){const d=addDays(TODAY,-i);const c=SCORE.condition(d);pts.push([d,c.score]);}
   if(pts.filter(p=>p[1]!=null).length<2)return"";
   return '<div class="card"><div class="card-hd">'+ico("pulse","c-accent")+'<h3>최근 7일 컨디션</h3></div><div class="w7">'+pts.map(([d,s])=>{const l=s!=null?lv5(s):null;
-    return '<div class="wd'+(d===TODAY?" today":"")+'"><span class="b '+(l?l[2]:"none")+'" style="height:'+(s!=null?Math.max(12,s):8)+'%"></span><b>'+(s!=null?s:"—")+'</b><small>'+(d===TODAY?"오늘":WEEK[parseYmd(d).getDay()])+'</small></div>';}).join("")+'</div></div>';}
+    return '<button class="wd'+(d===TODAY?" today":"")+'" data-day="'+d+'" aria-label="'+esc(shortDate(d))+' 컨디션 '+(s!=null?s+"점":"기록 없음")+', 자세히 보기"><span class="b '+(l?l[2]:"none")+'" style="height:'+(s!=null?Math.max(12,s):8)+'%"></span><b>'+(s!=null?s:"—")+'</b><small>'+(d===TODAY?"오늘":WEEK[parseYmd(d).getDay()])+'</small></button>';}).join("")+'</div><div class="cap" style="margin-top:8px">막대를 누르면 그날 기록을 볼 수 있어요.</div></div>';}
+/* #0957·#0693: 7일 막대의 하루를 누르면 그날 기록 한눈에 */
+function dayDetail(d){const x=dayData(d)||blankDay(d);const c=SCORE.condition(d);const n=sleepOn(d);const st=metric(d,"걸음");
+  const row=(i,k,v)=>'<div><small>'+ico(i,"ico-xs")+' '+k+'</small><b>'+esc(v)+'</b></div>';
+  return '<div class="card"><div class="kv">'+row("pulse","컨디션 점수",c.score!=null?c.score+"점":"—")+row("moon","수면",n?hm(n.asleep):"기록 없음")+row("foot","걸음",st!=null?fmtN(st)+"보":"—")+
+    row("drop","물",x.water+"잔")+row("cup","커피",x.coffee+"잔")+row("run","운동",x.workout.join("·")||"없음")+row("glass","술",alcText(x.alcohol)||"안 마심")+
+    row("smile","기분",[x.condition.map(k=>COND[k-1]?COND[k-1][2]:"").join("·"),x.mood.join("·")].filter(Boolean).join(" / ")||"기록 없음")+'</div></div>'+(x.memo?'<div class="cap" style="margin-top:10px">메모 · '+esc(x.memo)+'</div>':"");}
+document.addEventListener("click",e=>{const b=e.target.closest(".wd[data-day]");if(b)openSheet(korDate(b.dataset.day),dayDetail(b.dataset.day));});
 function renderHome(){
   applyLunchDefault();
   /* 벤토 그리드: 카드마다 메시지 하나, 크기는 중요도 순 (디자인 v3) */
@@ -425,11 +460,13 @@ function alertsCard(){
 /* =====================================================================
    수면
    ===================================================================== */
+/* 불러오는 동안 보여 줄 빈 카드(반짝임) */
+function skel(n){let h="";for(let i=0;i<n;i++)h+='<div class="card skel" aria-hidden="true"><i style="width:40%"></i><i style="width:85%"></i><i style="width:65%"></i></div>';return '<div class="sr-only" role="status">불러오는 중이에요</div>'+h;}
 let sleepView=null; // 수면 탭에서 보고 있는 날짜(null = 가장 최근)
 function sleepDates(){const H=S.health;return H?arr(H.sleep).map(x=>x.date).sort():[];}
 function renderSleep(){
   const H=S.health;let h='<div class="page-title">수면</div><div class="page-sub">Apple Watch 수면 기록 · 점수는 앱이 계산해요</div>';
-  if(!H||!arr(H.sleep).length){$("v-sleep").innerHTML=h+'<div class="card"><div class="empty"><b>수면 데이터가 없어요</b>'+esc(syncState()[2])+'</div></div>';return;}
+  if(!H||!arr(H.sleep).length){$("v-sleep").innerHTML=h+(CFG.key&&!S.loadedAt&&!S.healthErr?skel(3):'<div class="card"><div class="empty"><b>수면 데이터가 없어요</b>'+esc(syncState()[2])+'</div><button class="btn-sub" onclick="koraReload()">'+ico("refresh","ico-sm")+' 지금 다시 불러오기</button></div>');return;}
   const D=sleepDates();const latest=D[D.length-1];
   if(!sleepView||!D.includes(sleepView))sleepView=latest;
   const n=sleepOn(sleepView);const s=SCORE.sleep(n,sleepsBefore(n.date));const i=D.indexOf(sleepView);
@@ -442,7 +479,7 @@ function renderSleep(){
      '<div class="sleep-hero"><div class="rwrap">'+ring(s?s.score/100:0,"var(--blue)")+'<div class="sc-in"><b>'+(s?s.score:"—")+'</b><small>수면 점수</small></div></div>'+
      '<div class="r"><div class="big">'+hmHTML(n.asleep)+'</div>'+(pa!=null&&prev.length>=3?'<div class="cap">최근 평균 '+hm(pa)+' '+deltaHTML((n.asleep-pa),"분",true)+'</div>':"")+
      '<div class="cap">'+esc(hhmmStr(n.bed))+' 잠듦 → '+esc(hhmmStr(n.wake))+' 기상</div>'+(s?'<span class="badge '+SCORE.label(s.score)[1]+'">'+SCORE.label(s.score)[0]+'</span>':"")+'</div></div>'+
-     stageBar(n)+stagePct(n)+'</div>';
+     stageBar(n)+stagePct(n)+(sleepView!==latest?'<button class="lnk back-latest" id="sLatest">'+ico("chev","ico-sm")+' 최근 밤으로</button>':"")+'</div>';
   // 수면 부채·오늘 밤 목표
   const R7=lastSleeps(7);const debt=R7.reduce((a,x)=>a+Math.max(0,420-(x.asleep||0)),0);const tb=targetBed(debt);
   h+='<div class="card"><div class="card-hd">'+ico("moon","c-blue")+'<h3>오늘 밤 목표</h3></div><div class="kv">'+
@@ -453,7 +490,7 @@ function renderSleep(){
   const eff=n.inBed?n.asleep/n.inBed:null;
   h+='<div class="card"><div class="card-hd">'+ico("clock","c-blue")+'<h3>시간과 효율</h3></div><div class="kv">'+
     '<div><small>침대에 있던 시간</small><b>'+hm(n.inBed)+'</b></div><div><small>실제로 잔 시간</small><b>'+hm(n.asleep)+'</b></div>'+
-    '<div><small>수면 효율</small><b>'+(eff?Math.round(eff*100)+"%":"—")+'</b></div><div><small>'+(n.awakeCount!=null?"깬 횟수":"중간에 깬 시간")+'</small><b>'+(n.awakeCount!=null?n.awakeCount+"번 · "+hm(n.awakeMin):hm(n.awakeMin))+'</b></div></div></div>';
+    '<div><small>수면 효율</small><b>'+(eff?Math.round(eff*100)+"%":"—")+'</b>'+(eff?'<span class="cap">'+(eff>=.85?"좋음 (85% 이상)":eff>=.75?"보통":"낮음 · 누워 있는 시간 줄이기")+'</span>':"")+'</div><div><small>'+(n.awakeCount!=null?"깬 횟수":"중간에 깬 시간")+'</small><b>'+(n.awakeCount!=null?n.awakeCount+"번 · "+hm(n.awakeMin):hm(n.awakeMin))+'</b></div></div></div>';
   // 점수 구성
   if(s)h+='<div class="card"><div class="card-hd">'+ico("list","c-accent")+'<h3>점수 구성</h3></div><div class="pbars">'+s.parts.map(p=>'<div class="pb"><div class="t"><span>'+p.k+'</span><b>'+Math.round(p.v*p.w)+'<small> / '+p.w+'</small></b></div><div class="bar"><i style="width:'+Math.round(clamp(p.v,0,1)*100)+'%"></i></div></div>').join("")+'</div><div class="cap" style="margin-top:10px">없는 항목은 빼고 나머지로 100점을 다시 나눠요.</div></div>';
   // 추세
@@ -474,7 +511,7 @@ function renderSleep(){
   $("v-sleep").innerHTML=h;
   document.querySelectorAll("#sRange button").forEach(b=>{b.classList.toggle("on",+b.dataset.r===sleepRange);b.onclick=()=>{sleepRange=+b.dataset.r;renderSleep();};});
   const go=d=>{const j=D.indexOf(sleepView)+d;if(j>=0&&j<D.length){sleepView=D[j];const y=window.scrollY;renderSleep();window.scrollTo(0,y);}};
-  $("sPrev").onclick=()=>go(-1);$("sNext").onclick=()=>go(1);
+  $("sPrev").onclick=()=>go(-1);$("sNext").onclick=()=>go(1);if($("sLatest"))$("sLatest").onclick=()=>{sleepView=latest;renderSleep();};
   drawSleepCharts(R);
 }
 /* 단계 비율: 개인 30일 평균과 비교 */
@@ -482,7 +519,7 @@ function stagePct(n){const tot=(n.deep||0)+(n.core||0)+(n.rem||0);if(!tot||n.dee
   const past=sleepsBefore(n.date).slice(0,30).filter(x=>x.deep!=null&&x.rem!=null&&x.asleep);
   const pr=k=>{const a=avg(past.map(x=>x[k]/((x.deep||0)+(x.core||0)+(x.rem||0)||x.asleep)));return a==null?null:a*100;};
   const cell=(lab,k)=>{const v=n[k]/tot*100,b=past.length>=5?pr(k):null;return '<div><small>'+lab+'</small><b>'+Math.round(v)+'%</b>'+(b!=null?'<span class="cap">평소 '+Math.round(b)+'%</span>':"")+'</div>';};
-  return '<div class="pct3">'+cell("깊은 수면","deep")+cell("REM","rem")+cell("얕은 수면","core")+'</div>';}
+  return '<div class="pct3">'+cell("깊은 수면","deep")+cell("REM","rem")+cell("얕은 수면","core")+'</div><div class="cap" style="margin-top:6px">깊은 수면은 몸 회복, REM은 기억·감정 정리를 도와요.</div>';}
 /* 오늘 밤 목표 취침: 내일 예상 기상 − 7시간 30분, 부채가 3시간 넘으면 30분 앞당김.
    주말 기상은 평일 기상 + 1시간 30분까지만 늦춰 잡는다(리듬이 무너지지 않게). */
 function targetBed(debt){
@@ -504,11 +541,13 @@ function sleepTrendText(R){if(R.length<3)return"기록이 3일 이상 쌓이면 
   if(wk.length>=2&&we.length>=1){const d=avg(we.map(x=>x.asleep))-avg(wk.map(x=>x.asleep));if(d>=90)t+=" 주말에 평일보다 "+hm(d)+" 더 자서, 평일 수면이 모자란 걸 몰아서 채우는 패턴이에요.";}
   return t;}
 function sleepTips(R,bsd){const t=[];const a=avg(R.map(x=>x.asleep));
+  const l3=R.slice(-3);if(l3.length===3&&l3[0].asleep>l3[1].asleep&&l3[1].asleep>l3[2].asleep&&l3[2].asleep<450)t.push("최근 3일 수면이 조금씩 줄고 있어요. 오늘 밤은 평소보다 30분만 일찍 누워 볼까요?");   /* #0394 */
+  const ai=alcInsight();if(ai&&/짧았/.test(ai))t.push(ai+" 술 마신 날은 물을 더 마시고 조금 일찍 눕는 게 좋아요.");
   if(a!=null&&a<420)t.push("평균 수면이 7시간보다 "+hm(420-a)+" 짧아요. 잠드는 시각을 15분씩 앞당겨 보세요.");
   if(bsd!=null&&bsd>45)t.push("잠드는 시각이 들쭉날쭉해요. 평일·주말 모두 같은 시각(±30분)에 눕는 게 회복에 가장 도움이 돼요.");
   const ln=R.filter(x=>{const b=bedMin(x.bed);return b!=null&&b>=24*60+60;}).length;if(ln>=Math.ceil(R.length/2))t.push("새벽 1시 넘어 잠든 날이 많아요. 자기 1시간 전 화면 밝기를 낮추고 샤워를 일찍 해 보세요.");
   t.push("카페인은 오후 2시 전에 끝내면 깊은 수면에 도움이 돼요.");
-  return t.slice(0,3);}
+  return t.slice(0,4);}
 
 /* =====================================================================
    건강
@@ -516,6 +555,7 @@ function sleepTips(R,bsd){const t=[];const a=avg(R.map(x=>x.asleep));
 function renderHealth(){
   let h='<div class="page-title">건강</div><div class="page-sub">'+esc(syncState()[2])+'</div><div class="stack">';
   const H=S.health;
+  if(!H&&CFG.key&&!S.loadedAt&&!S.healthErr){$("v-health").innerHTML=h+skel(2)+'<div class="sec-title">오늘 기록</div>'+logCard()+'</div>';bindLog();return;}   /* #0215: 불러오는 중과 정말 없음을 구분 */
   if(!H){$("v-health").innerHTML=h+'<div class="card"><div class="empty"><b>건강 데이터 연결 필요</b>'+esc(syncState()[2])+'</div></div><div class="sec-title">오늘 기록</div>'+logCard()+'</div>';bindLog();return;}
   h+=signalCard()+stepCard()+heartCard();
   const ref=addDays(TODAY,-1);const pre=addDays(TODAY,-2);
@@ -575,8 +615,11 @@ function heartCard(){const ref=addDays(TODAY,-1);
   return '<div class="card"><div class="card-hd">'+ico("heart","c-heart")+'<h3>심장</h3><span class="cap">어제 · 내 30일 기준</span></div>'+warn+'<div class="hrs">'+rows+'</div><div class="cap" style="margin-top:12px">진한 띠는 내 최근 30일 중 가운데 50%, 점은 어제 값이에요. 진단이 아닌 참고용이에요.</div></div>';}
 /* 물·커피 7일 막대 */
 function lifeGrid(){const ids=[];for(let i=6;i>=0;i--)ids.push(addDays(TODAY,-i));
-  const col=(k,c,max)=>ids.map(d=>{const x=dayData(d);const v=x?x[k]:0;return '<div class="lg"><div class="area"><span class="bb" style="height:'+(v?Math.max(8,Math.min(100,v/max*100)):3)+'%;background:'+c+'"><span class="vv">'+(v||"")+'</span></span></div><small>'+(d===TODAY?"오늘":WEEK[parseYmd(d).getDay()])+'</small></div>';}).join("");
-  return '<div class="card"><div class="card-hd">'+ico("drop","c-blue")+'<h3>최근 7일 물·커피</h3></div><div class="lbl" style="margin-left:0">'+ico("drop","ico-sm c-water")+' 물 <small>8잔 목표</small></div><div class="lgs">'+col("water","var(--blue)",8)+'</div><div class="lbl" style="margin-left:0">'+ico("cup","ico-sm c-coffee")+' 커피</div><div class="lgs short">'+col("coffee","var(--zap)",4)+'</div></div>';}
+  /* #0255·#0274·#0260: 물은 8잔 목표선·달성일 표시, 기록 없는 날은 0과 다르게 점선 */
+  const col=(k,c,max,goal)=>ids.map(d=>{const x=dayData(d);const v=x?x[k]:0;const hit=goal&&v>=goal;
+    return '<div class="lg'+(d===TODAY?" today":"")+(hit?" hit":"")+(x?"":" none")+'"><div class="area">'+(goal?'<i class="goal" style="bottom:'+(goal/max*100)+'%"></i>':"")+'<span class="bb" style="height:'+(v?Math.max(8,Math.min(100,v/max*100)):3)+'%;background:'+c+'"><span class="vv">'+(v||"")+(hit?"✓":"")+'</span></span></div><small>'+(d===TODAY?"오늘":WEEK[parseYmd(d).getDay()])+'</small></div>';}).join("");
+  const hitN=ids.filter(d=>{const x=dayData(d);return x&&x.water>=8;}).length;
+  return '<div class="card"><div class="card-hd">'+ico("drop","c-blue")+'<h3>최근 7일 물·커피</h3></div><div class="lbl" style="margin-left:0">'+ico("drop","ico-sm c-water")+' 물 <small>8잔 목표 · 7일 중 '+hitN+'일 달성</small></div><div class="lgs">'+col("water","var(--blue)",10,8)+'</div><div class="lbl" style="margin-left:0">'+ico("cup","ico-sm c-coffee")+' 커피</div><div class="lgs short">'+col("coffee","var(--zap)",4)+'</div></div>';}
 function logCard(){
   const cups=Array.from({length:Math.max(8,today.water)},(_,i)=>i<today.water);
   const meal=(f,lab)=>{const v=today[f];const opts=mealOpts(f).concat(["직접 입력"]);const custom=v&&!opts.includes(v);return '<div class="mrow"><span class="ml">'+lab+'</span>'+chips("meal-"+f,custom?[v].concat(opts):opts,x=>x===v,"sm2")+'</div>';};
@@ -596,9 +639,26 @@ const FIELDS=[["fMemo","memo"]];
 function bindLog(){
   FIELDS.forEach(([id,k])=>{const f=$(id);if(!f)return;f.value=today[k];f.addEventListener("input",e=>{today[k]=e.target.value;changed(false);});});
 }
+/* 2026-11-27-5: 예전엔 data-act 버튼(고르기 창 열기 등)을 누르기만 해도 '바뀜'으로 저장됐다 → 물·커피일 때만 */
+let lpAt=0;
+function bumpCup(k,d,showToast){const prev=today[k];today[k]=clamp(prev+d,0,k==="water"?20:10);if(today[k]===prev)return;changed(true);if(showToast!==false)afterCup(k,prev,d);}
+function afterCup(k,prev,d){const nm=k==="water"?"물":"커피";const undo=()=>{today[k]=prev;changed(true);toast(nm+" 기록을 되돌렸어요");};
+  if(d<0){toast(nm+" 1잔 뺐어요 · 지금 "+today[k]+"잔",undo);return;}
+  if(k==="water"&&today.water===8&&ls("ys_water_done")!==TODAY){ls("ys_water_done",TODAY);toast("오늘 물 8잔 달성! 잘했어요",undo);celebrate('[data-act="water+"]');return;}   /* #0208 */
+  if(k==="coffee"&&new Date().getHours()>=14){const tb=targetBed(lastSleeps(7).reduce((a,x)=>a+Math.max(0,420-(x.asleep||0)),0));toast("커피 "+today.coffee+"잔 · 지금 커피는 오늘 밤("+tb.bed+" 취침) 잠을 얕게 할 수 있어요",undo);return;}   /* #0363 */
+  toast(nm+" "+today[k]+"잔 기록했어요",undo);}
+function celebrate(sel){if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;setTimeout(()=>{document.querySelectorAll(".view.on "+sel+", #sheetBody "+sel).forEach(el=>{el.classList.remove("cele");void el.offsetWidth;el.classList.add("cele");});},60);}
 document.addEventListener("click",e=>{const a=e.target.closest("[data-act]");if(!a)return;const act=a.dataset.act;
-  if(act==="water+")today.water=Math.min(today.water+1,20);if(act==="water-")today.water=Math.max(today.water-1,0);
-  if(act==="coffee+")today.coffee=Math.min(today.coffee+1,10);if(act==="coffee-")today.coffee=Math.max(today.coffee-1,0);changed(true);});
+  if(!/^(water|coffee)[+-]$/.test(act))return;
+  if(Date.now()-lpAt<700)return;   /* 꾹 누르기로 이미 처리 */
+  bumpCup(act.slice(0,-1),act.endsWith("+")?1:-1,!a.classList.contains("pm")||act.endsWith("+"));});
+/* #0224: 빠른 기록의 물·커피를 꾹 누르면 1잔 빼기 */
+(()=>{let t=null,x0=0,y0=0;const stop=()=>{clearTimeout(t);t=null;};
+  document.addEventListener("pointerdown",e=>{const a=e.target.closest('.qk[data-act="water+"],.qk[data-act="coffee+"]');if(!a)return;x0=e.clientX;y0=e.clientY;stop();
+    t=setTimeout(()=>{t=null;lpAt=Date.now();try{navigator.vibrate&&navigator.vibrate(12);}catch(_){}bumpCup(a.dataset.act.slice(0,-1),-1);},550);},{passive:true});
+  document.addEventListener("pointermove",e=>{if(t&&Math.hypot(e.clientX-x0,e.clientY-y0)>10)stop();},{passive:true});
+  ["pointerup","pointercancel","scroll"].forEach(ev=>document.addEventListener(ev,stop,{passive:true,capture:true}));
+  document.addEventListener("contextmenu",e=>{if(e.target.closest(".qk"))e.preventDefault();});})();
 
 /* =====================================================================
    브리핑 (오늘 브리핑 + 받은 알림함)
@@ -720,16 +780,20 @@ function baseOpts(extra){Chart.defaults.font.family=css("--font")||"sans-serif";
 const valLabels={id:"vl",afterDatasetsDraw(c){const o=c.options.plugins.vl;if(!o)return;const x=c.ctx;x.save();x.font="700 10px "+css("--font");x.textAlign="center";x.fillStyle=css("--sub");
   const last=c.data.datasets.length-1;const meta=c.getDatasetMeta(o.stacked?last:0);
   meta.data.forEach((p,j)=>{let v=o.stacked?c.data.datasets.reduce((a,d)=>a+(d.data[j]||0),0):c.data.datasets[0].data[j];if(v==null||v===0)return;x.fillText(o.fmt==="h"?(Math.round(v*10)/10)+"h":o.fmt==="k"?(v>=1000?(Math.round(v/100)/10)+"k":String(v)):String(v),p.x,p.y-6);});x.restore();}};
+/* #0255·#0131: 수면 차트에 7시간 목표선 (막대 뒤에) */
+const refLines={id:"rl",beforeDatasetsDraw(c){const o=c.options.plugins.rl;if(!o||!c.scales.y)return;const x=c.ctx,a=c.chartArea;x.save();x.font="700 10px "+css("--font");
+  (o.lines||[]).forEach(l=>{if(l.v==null)return;const y=c.scales.y.getPixelForValue(l.v);if(y<a.top||y>a.bottom)return;x.strokeStyle=l.c;x.globalAlpha=l.a||1;x.setLineDash(l.dash||[5,4]);x.lineWidth=1.2;
+    x.beginPath();x.moveTo(a.left,y);x.lineTo(a.right,y);x.stroke();x.setLineDash([]);x.globalAlpha=1;x.fillStyle=l.c;x.textAlign="left";x.textBaseline="middle";x.fillText(l.t,a.right+4,y);});x.restore();}};
 const lbl=id=>{const d=parseYmd(id);return(d.getMonth()+1)+"/"+d.getDate();};
 function drawSleepCharts(R){
   if(!window.Chart||!R.length)return;
   const L=R.map(x=>lbl(x.date));const h=v=>v==null?0:Math.round(v/6)/10;
-  mk("chSleep",{type:"bar",plugins:[valLabels],data:{labels:L,datasets:[
+  mk("chSleep",{type:"bar",plugins:[valLabels,refLines],data:{labels:L,datasets:[
     {label:"깊은",data:R.map(x=>h(x.deep)),backgroundColor:css("--deep"),stack:"s",borderRadius:2},
     {label:"얕은",data:R.map(x=>h(x.core)),backgroundColor:css("--core"),stack:"s"},
     {label:"REM",data:R.map(x=>h(x.rem)),backgroundColor:css("--rem"),stack:"s"},
     {label:"깨어 있음",data:R.map(x=>h(x.awakeMin)),backgroundColor:css("--awake"),stack:"s",borderRadius:{topLeft:5,topRight:5}}]},
-    options:baseOpts({layout:{padding:{top:16}},plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:8,boxHeight:8,usePointStyle:true}},vl:R.length<=10?{stacked:true,fmt:"h"}:null,
+    options:baseOpts({layout:{padding:{top:16,right:30}},plugins:{legend:{display:true,position:"bottom",labels:{boxWidth:8,boxHeight:8,usePointStyle:true}},vl:R.length<=10?{stacked:true,fmt:"h"}:null,rl:{lines:[{v:7,t:"7h",c:css("--sub")}]},
       tooltip:{callbacks:{label:c=>c.dataset.label+" "+hm(c.raw*60)}}},scales:{x:{stacked:true,grid:{display:false},border:{display:false},ticks:{maxRotation:0,autoSkipPadding:8}},y:{stacked:true,grid:{color:css("--line")},border:{display:false},ticks:{callback:v=>v+"h"}}}})});
   mk("chBed",{type:"line",data:{labels:L,datasets:[{label:"잠든 시각",data:R.map(x=>{const b=bedMin(x.bed);return b==null?null:b/60;}),borderColor:css("--blue"),backgroundColor:css("--blue"),tension:.35,pointRadius:3,spanGaps:true},
     {label:"기상 시각",data:R.map(x=>{const w=minOfDay(x.wake);return w==null?null:w/60+24;}),borderColor:css("--accent"),backgroundColor:css("--accent"),tension:.35,pointRadius:3,spanGaps:true}]},
@@ -772,6 +836,7 @@ function changed(rerender){today.reflected=false;localEditAt=Date.now();persistL
   dirty=true;setSaved("저장 중…");clearTimeout(saveTimer);saveTimer=setTimeout(flush,700);}
 async function flush(urgent){
   if(!CFG.key){setSaved("연결이 필요해요");location.hash="#me";return;}
+  if(!navigator.onLine){setSaved("오프라인 · 이 기기에 저장해 두고 연결되면 보낼게요");return;}   /* #0757 */
   if(saving){clearTimeout(saveTimer);saveTimer=setTimeout(flush,500);return;}
   saving=true;dirty=false;const body=Object.assign({},today,{workout:today.workout.slice(),condition:today.condition.length?today.condition.join(","):null,mood:today.mood.join(","),supplement:today.supplement.length?today.supplement.join(","):"FALSE",alcohol:serAlc(today.alcohol)});
   try{const res=await apiPost({action:"saveDay",day:body},urgent);
@@ -815,7 +880,8 @@ function leave(){if(dirty&&!saving){clearTimeout(saveTimer);flush(true);}}
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")wake();else leave();});
 window.addEventListener("pagehide",leave);
 window.addEventListener("pageshow",e=>{if(e.persisted)wake();});
-window.addEventListener("online",wake);
+window.addEventListener("online",()=>{wake();renderAll(true);});
+window.addEventListener("offline",()=>{setStatus("오프라인 · 기록은 이 기기에 저장돼요","off");renderAll(true);});
 (()=>{const ptr=document.createElement("div");ptr.id="ptr";ptr.textContent="↓ 당겨서 새로고침";document.body.appendChild(ptr);let y0=null,dy=0;
   window.addEventListener("touchstart",e=>{if(window.scrollY<=0&&e.touches.length===1&&!$("sheet").classList.contains("on")&&!document.documentElement.classList.contains("ai-open")){y0=e.touches[0].clientY;dy=0;}else y0=null;},{passive:true});
   window.addEventListener("touchmove",e=>{if(y0===null)return;dy=e.touches[0].clientY-y0;if(dy>0){ptr.style.transform="translateY("+Math.min(dy/2-70,10)+"px)";ptr.textContent=dy>110?"↻ 놓으면 새로고침":"↓ 당겨서 새로고침";}},{passive:true});
