@@ -1436,4 +1436,41 @@ html::before{content:"";position:fixed;left:0;right:0;top:0;bottom:0;z-index:-1;
 .pm:active,.btn-sub:active,.x:active{transform:scale(.92)}
 .toggle:active{transform:scale(.94)}
 @media (prefers-reduced-motion:reduce){.sync-btn.spin .ico{animation:none}}
+/* ===== 2026-11-27-5 · UI/UX 1000선에서 고른 것 ===== */
+/* #0335 되돌리기 토스트: 버튼이 붙으면 눌리게, 긴 문장은 줄바꿈 */
+.toast{width:max-content;max-width:calc(100vw - 32px);white-space:normal;text-align:center;word-break:keep-all}
+.toast.has-act{display:flex;align-items:center;gap:12px;text-align:left;padding:8px 8px 8px 16px;pointer-events:auto}
+.toast .t-undo{flex:none;min-height:36px;padding:0 14px;border-radius:999px;background:color-mix(in srgb,var(--bg) 18%,transparent);color:var(--bg);font-weight:800;font-size:13px}
+/* #0208 물 목표 달성 */
+.qk.cele,.pm.cele{animation:cele .9s cubic-bezier(.2,.8,.2,1)}
+@keyframes cele{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--blue) 55%,transparent)}35%{transform:scale(1.05)}100%{box-shadow:0 0 0 18px transparent;transform:none}}
+.qk{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+/* #0255·#0260 물 7일 막대: 목표선·달성·기록 없음 */
+.lg .goal{position:absolute;left:-4px;right:-4px;border-top:1.5px dashed var(--faint);z-index:1;pointer-events:none}
+.lg.hit .bb{opacity:1}
+.lg.none .bb{background:transparent!important;border:1.5px dashed var(--line);height:14px!important;opacity:1}
+.lg.today small,.lg:last-child small{color:var(--ink);font-weight:750}
+/* #0957 7일 컨디션 막대는 누르는 버튼 */
+.wd{width:100%;border-radius:10px;padding:0}
+.wd:active{transform:scale(.94)}
+/* #0215 불러오는 중 반짝이는 빈 카드 */
+.card.skel{display:flex;flex-direction:column;gap:10px;min-height:96px}
+.card.skel i{display:block;height:14px;border-radius:7px;background:linear-gradient(90deg,var(--surface) 0%,var(--surface-2) 50%,var(--surface) 100%);background-size:200% 100%;animation:skel 1.3s linear infinite}
+.card.skel i:first-child{height:18px}
+@keyframes skel{from{background-position:200% 0}to{background-position:-200% 0}}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.kv .cap{display:block;margin-top:2px;font-weight:600}
+/* #0342 최근 밤으로 */
+.back-latest{display:flex;align-items:center;justify-content:center;gap:2px;margin:10px auto 0;min-height:40px}
+/* #0348 늦은 동기화는 누르는 버튼 */
+button.sync{cursor:pointer;font:inherit;font-size:var(--fs-cap);font-weight:700}
+.hhd .sync.late{color:var(--warn)}
+/* #0845 브리핑 날짜 머리글이 스크롤해도 위에 붙어 있게 */
+#v-brief .group{position:sticky;top:var(--sat,0px);z-index:3;background:var(--bg);padding:8px 4px;margin-left:0;margin-right:0;border-radius:0 0 10px 10px}
+/* #0051·#0941 눌러서 바뀌는 숫자는 자리 폭 고정 */
+.big,.metric .v,.qk small,.counter,.kv b,.pct3 b,.sc-in b{font-variant-numeric:tabular-nums}
+/* #0903·#0189 작은 버튼은 보이는 크기는 그대로, 누르는 영역만 44px로 */
+.lnk,.dnav button,.sheet .x,.seg button{position:relative}
+.lnk::after,.dnav button::after,.sheet .x::after,.seg button::after{content:"";position:absolute;inset:-8px}
+@media (prefers-reduced-motion:reduce){.card.skel i{animation:none}.qk.cele,.pm.cele{animation:none}}
 /* ===== 노치 보호 (2026-11-22-7 · 2026-11-25 KORA: 배경 단색) — 이 블록은 항상 파일 맨 끝에 둘 것 ===== body::before = 상태바(노치) 가림막 전용. 배경은 html에만 그린다. 디자인 바꿀 때 body::before를 배경으로 쓰지 말 것. */ :root{--sat:env(safe-area-inset-top,0px)} html{background:var(--bg)} body{background:transparent} body::before{content:""!important;position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:auto!important; height:var(--sat)!important;background:var(--bg)!important;z-index:2147483000!important;transform:translateZ(0)!important;pointer-events:none!important;display:block!important} .wrap{padding-top:calc(var(--sat) + var(--sp-2))!important} .toast{top:calc(var(--sat) + 12px)} #ptr{padding-top:calc(var(--sat) + 8px)}
