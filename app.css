@@ -1377,4 +1377,6 @@ html[data-theme] .hero.quote::before{background:var(--g-light)!important;backgro
 .sb.hit .bb{background:var(--g-deep)!important;opacity:1}
 .sb.today .bb{background:var(--g-light)!important;opacity:1}
 @media (prefers-reduced-motion:reduce){.tab-pill{transition:none}.tabbar a.on::after{animation:none}}
+/* 2026-11-27-2: 기록(+) 버튼과 KORA 버튼 겹침 방지 — AI가 켜져 있으면 + 버튼을 KORA 버튼 바로 위로 올려 세로로 쌓는다 */
+html.ai-on .fab,html.ai-on [data-theme="dark"] .fab,[data-theme] html.ai-on .fab{bottom:calc(154px + env(safe-area-inset-bottom))!important;right:max(9px,calc(50% - 273px))!important}
 /* ===== 노치 보호 (2026-11-22-7 · 2026-11-25 KORA: 배경 단색) — 이 블록은 항상 파일 맨 끝에 둘 것 ===== body::before = 상태바(노치) 가림막 전용. 배경은 html에만 그린다. 디자인 바꿀 때 body::before를 배경으로 쓰지 말 것. */ :root{--sat:env(safe-area-inset-top,0px)} html{background:var(--bg)} body{background:transparent} body::before{content:""!important;position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:auto!important; height:var(--sat)!important;background:var(--bg)!important;z-index:60!important;pointer-events:none!important;display:block!important} .wrap{padding-top:calc(var(--sat) + var(--sp-2))!important} .toast{top:calc(var(--sat) + 12px)} #ptr{padding-top:calc(var(--sat) + 8px)}
